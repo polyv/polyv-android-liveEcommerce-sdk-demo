@@ -1,0 +1,29 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.easefun.polyv.liveecommerce">
+
+    <application>
+
+        <activity
+            android:name=".scenes.PLVECLiveActivity"
+            android:configChanges="orientation|keyboard|screenSize"
+            android:screenOrientation="portrait"
+            android:theme="@style/AppTheme.Translate"
+            android:windowSoftInputMode="stateHidden|adjustResize">
+        </activity>
+
+        <activity
+            android:name=".scenes.PLVECPlaybackActivity"
+            android:configChanges="orientation|keyboard|screenSize"
+            android:screenOrientation="portrait"
+            android:theme="@style/AppTheme.Translate"
+            android:windowSoftInputMode="stateHidden|adjustResize">
+        </activity>
+
+        <activity
+            android:name=".modules.chatroom.widget.PLVECChatInputWindow"
+            android:configChanges="orientation|keyboard|screenSize"
+            android:screenOrientation="behind"
+            android:theme="@style/AppTheme.Translucent" />
+
+    </application>
+</manifest>

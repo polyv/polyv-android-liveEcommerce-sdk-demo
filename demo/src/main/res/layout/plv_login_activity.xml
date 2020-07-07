@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <EditText
+        android:id="@+id/userid_et"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="40dp"
+        android:layout_marginRight="40dp"
+        android:hint="userId"
+        android:singleLine="true"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/appid_et"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_chainStyle="packed" />
+
+    <EditText
+        android:id="@+id/appid_et"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="40dp"
+        android:layout_marginRight="40dp"
+        android:hint="appId"
+        android:singleLine="true"
+        app:layout_constraintBottom_toTopOf="@+id/appsecret_et"
+        app:layout_constraintTop_toBottomOf="@+id/userid_et" />
+
+    <EditText
+        android:id="@+id/appsecret_et"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="40dp"
+        android:layout_marginRight="40dp"
+        android:hint="appSecret"
+        android:singleLine="true"
+        app:layout_constraintBottom_toTopOf="@+id/channelid_et"
+        app:layout_constraintTop_toBottomOf="@+id/appid_et" />
+
+    <EditText
+        android:id="@+id/channelid_et"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="40dp"
+        android:layout_marginRight="40dp"
+        android:hint="channelId"
+        android:singleLine="true"
+        app:layout_constraintBottom_toTopOf="@+id/vid_et"
+        app:layout_constraintTop_toBottomOf="@+id/appsecret_et" />
+
+    <EditText
+        android:id="@+id/vid_et"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="40dp"
+        android:layout_marginRight="40dp"
+        android:hint="vid"
+        android:singleLine="true"
+        app:layout_constraintBottom_toTopOf="@+id/enter_live_bt"
+        app:layout_constraintTop_toBottomOf="@+id/channelid_et" />
+
+    <Button
+        android:layout_marginRight="20dp"
+        android:id="@+id/enter_live_bt"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toLeftOf="@+id/enter_playback_bt"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/vid_et"
+        android:text="进入直播" />
+
+    <Button
+        android:id="@+id/enter_playback_bt"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintLeft_toRightOf="@+id/enter_live_bt"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/vid_et"
+        android:text="进入回放" />
+</android.support.constraint.ConstraintLayout>
