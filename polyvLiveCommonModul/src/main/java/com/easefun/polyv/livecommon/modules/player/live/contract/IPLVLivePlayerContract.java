@@ -9,8 +9,6 @@ import com.easefun.polyv.businesssdk.api.common.player.PolyvPlayError;
 import com.easefun.polyv.businesssdk.model.video.PolyvMediaPlayMode;
 import com.easefun.polyv.cloudclass.video.PolyvCloudClassVideoView;
 import com.easefun.polyv.cloudclass.video.api.IPolyvCloudClassAudioModeView;
-import com.easefun.polyv.livecommon.contract.IPLVAbsViewPresenter;
-import com.easefun.polyv.livecommon.contract.IPLVBaseView;
 import com.easefun.polyv.livecommon.modules.player.live.model.PLVLivePlayerData;
 
 /**
@@ -19,7 +17,10 @@ import com.easefun.polyv.livecommon.modules.player.live.model.PLVLivePlayerData;
 public interface IPLVLivePlayerContract {
 
     //mvp-直播播放器view层接口
-    interface IPLVLivePlayerView extends IPLVBaseView<IPLVLivePlayerPresenter> {
+    interface ILivePlayerView {
+        //设置presenter
+        void setPresenter(@NonNull ILivePlayerPresenter presenter);
+
         //获取主播放器view
         PolyvCloudClassVideoView getCloudClassVideoView();
 
@@ -58,7 +59,13 @@ public interface IPLVLivePlayerContract {
     }
 
     //mvp-直播播放器presenter层接口
-    interface IPLVLivePlayerPresenter extends IPLVAbsViewPresenter<IPLVLivePlayerView> {
+    interface ILivePlayerPresenter {
+        //注册view
+        void registerView(@NonNull ILivePlayerView v);
+
+        //解除注册的view
+        void unregisterView();
+
         //初始化播放器配置
         void init();
 
@@ -91,7 +98,6 @@ public interface IPLVLivePlayerContract {
         PLVLivePlayerData getData();
 
         //销毁，包括销毁播放器、解除view
-        @Override
         void destroy();
     }
 }

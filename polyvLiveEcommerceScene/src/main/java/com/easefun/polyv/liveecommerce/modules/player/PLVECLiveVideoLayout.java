@@ -44,7 +44,7 @@ public class PLVECLiveVideoLayout extends FrameLayout {
     //播放器没有直播流显示的view
     private View nostreamView;
     //播放器presenter
-    private IPLVLivePlayerContract.IPLVLivePlayerPresenter livePlayerPresenter;
+    private IPLVLivePlayerContract.ILivePlayerPresenter livePlayerPresenter;
     // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="构造方法">
@@ -80,8 +80,14 @@ public class PLVECLiveVideoLayout extends FrameLayout {
     }
     // </editor-fold>
 
-    // <editor-fold defaultstate="collapsed" desc="播放器view层事件处理">
+    // <editor-fold defaultstate="collapsed" desc="播放器 - view层事件处理，获取实例">
     private PLVAbsLivePlayerView livePlayerView = new PLVAbsLivePlayerView() {
+        @Override
+        public void setPresenter(@NonNull IPLVLivePlayerContract.ILivePlayerPresenter presenter) {
+            super.setPresenter(presenter);
+            livePlayerPresenter = presenter;
+        }
+
         @Override
         public PolyvCloudClassVideoView getCloudClassVideoView() {
             return videoView;
@@ -152,22 +158,14 @@ public class PLVECLiveVideoLayout extends FrameLayout {
         public void onRouteChanged(int routePos) {
             super.onRouteChanged(routePos);
         }
-
-        @Override
-        public void setPresenter(IPLVLivePlayerContract.IPLVLivePlayerPresenter presenter) {
-            super.setPresenter(presenter);
-            livePlayerPresenter = presenter;
-        }
     };
-    // </editor-fold>
 
-    // <editor-fold defaultstate="collapsed" desc="获取播放器view层实例">
-    public IPLVLivePlayerContract.IPLVLivePlayerView getLivePlayerView() {
+    public IPLVLivePlayerContract.ILivePlayerView getLivePlayerView() {
         return livePlayerView;
     }
     // </editor-fold>
 
-    // <editor-fold defaultstate="collapsed" desc="设置播放器区域位置">
+    // <editor-fold defaultstate="collapsed" desc="播放器 - 设置播放器区域位置">
     public void setVideoViewRect(Rect videoViewRect) {
         this.videoViewRect = videoViewRect;
     }

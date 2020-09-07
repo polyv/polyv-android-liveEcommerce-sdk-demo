@@ -13,19 +13,19 @@ import android.widget.FrameLayout;
 
 import com.easefun.polyv.cloudclass.model.PolyvLiveClassDetailVO;
 import com.easefun.polyv.cloudclass.model.bulletin.PolyvBulletinVO;
-import com.easefun.polyv.cloudclass.model.commodity.PolyvCommodityVO;
+import com.easefun.polyv.cloudclass.model.commodity.saas.PolyvCommodityVO;
+import com.easefun.polyv.livecommon.config.PLVLiveChannelConfig;
+import com.easefun.polyv.livecommon.data.IPLVLiveRoomData;
+import com.easefun.polyv.livecommon.data.PLVLiveRoomData;
 import com.easefun.polyv.livecommon.modules.chatroom.contract.IPLVChatroomContract;
 import com.easefun.polyv.livecommon.modules.chatroom.presenter.PLVChatroomPresenter;
-import com.easefun.polyv.livecommon.config.PLVLiveChannelConfig;
-import com.easefun.polyv.livecommon.dataservice.IPLVLiveRoomData;
-import com.easefun.polyv.livecommon.dataservice.PLVLiveRoomData;
 import com.easefun.polyv.livecommon.modules.liveroom.IPLVLiveRoomManager;
 import com.easefun.polyv.livecommon.modules.liveroom.PLVLiveRoomManager;
 import com.easefun.polyv.livecommon.modules.player.live.contract.IPLVLivePlayerContract;
 import com.easefun.polyv.livecommon.modules.player.live.model.PLVLivePlayerData;
 import com.easefun.polyv.livecommon.modules.player.live.presenter.PLVLivePlayerPresenter;
-import com.easefun.polyv.livecommon.utils.PLVViewInitUtils;
 import com.easefun.polyv.livecommon.ui.window.PLVBaseActivity;
+import com.easefun.polyv.livecommon.utils.PLVViewInitUtils;
 import com.easefun.polyv.liveecommerce.R;
 import com.easefun.polyv.liveecommerce.modules.player.PLVECLiveVideoLayout;
 import com.easefun.polyv.liveecommerce.scenes.fragments.PLVECEmptyFragment;
@@ -40,7 +40,6 @@ import com.easefun.polyv.liveecommerce.scenes.fragments.PLVECLiveHomeFragment;
 public class PLVECLiveActivity extends PLVBaseActivity {
 
     // <editor-fold defaultstate="collapsed" desc="成员变量">
-
     // 参数 - 定义进入页面所需参数
     private static final String EXTRA_CHANNEL_ID = "channelId";   // 频道号
     private static final String EXTRA_VIEWER_ID = "viewerId";   // 观看者Id
@@ -61,8 +60,8 @@ public class PLVECLiveActivity extends PLVBaseActivity {
      *     P 是底层处理，代码封装在 polyvLiveComoonModule 中，一般不需要修改；
      */
     // MVP模式 - 播放器
-    private IPLVLivePlayerContract.IPLVLivePlayerPresenter livePlayerPresenter;  // 播放器MVP模式中 的 P
-    private IPLVLivePlayerContract.IPLVLivePlayerView livePlayerView; // 播放器MVP模式中 的 V
+    private IPLVLivePlayerContract.ILivePlayerPresenter livePlayerPresenter;  // 播放器MVP模式中 的 P
+    private IPLVLivePlayerContract.ILivePlayerView livePlayerView; // 播放器MVP模式中 的 V
 
     // MVP模式 - 聊天室
     private IPLVChatroomContract.IChatroomPresenter chatroomPresenter;   // 聊天室MVP模式中 的P
@@ -74,7 +73,7 @@ public class PLVECLiveActivity extends PLVBaseActivity {
     private IPLVLiveRoomData liveRoomData;
     // </editor-fold>
 
-    // <editor-fold defaultstate="collapsed" desc="启动Activity的入口方法">
+    // <editor-fold defaultstate="collapsed" desc="启动Activity">
     public static void launchLive(Activity activity, String channelId, String viewerId, String viewerName) {
         Intent intent = new Intent(activity, PLVECLiveActivity.class);
         intent.putExtra(EXTRA_CHANNEL_ID, channelId);
@@ -93,7 +92,7 @@ public class PLVECLiveActivity extends PLVBaseActivity {
         initView();
         initLivePlayerMVP();
         initChatroomMVP();
-        initRoomData();
+        initRoomManager();
     }
 
     @Override
@@ -181,8 +180,8 @@ public class PLVECLiveActivity extends PLVBaseActivity {
             }
 
             @Override
-            public void onGetCommodityVOAction() {
-                liveRoomManager.getCommodityInfo(null);
+            public void onGetCommodityVOAction(final int rank) {
+                liveRoomManager.getCommodityInfo(rank, null);
             }
 
             @Override
@@ -200,7 +199,7 @@ public class PLVECLiveActivity extends PLVBaseActivity {
     }
     // </editor-fold>
 
-    // <editor-fold defaultstate="collapsed" desc="播放器MVP模式 初始化">
+    // <editor-fold defaultstate="collapsed" desc="播放器 - MVP模式 初始化">
     private void initLivePlayerMVP() {
         // 获得 V
         livePlayerView = liveVideoLayout.getLivePlayerView();
@@ -217,7 +216,7 @@ public class PLVECLiveActivity extends PLVBaseActivity {
     }
     // </editor-fold>
 
-    // <editor-fold defaultstate="collapsed" desc="聊天室MVP模式 初始化">
+    // <editor-fold defaultstate="collapsed" desc="聊天室 - MVP模式 初始化">
     private void initChatroomMVP() {
         // 获得 聊天室MVP模式 中的 V
         chatroomView = liveHomeFragment.getChatroomView();
@@ -230,9 +229,9 @@ public class PLVECLiveActivity extends PLVBaseActivity {
     }
     // </editor-fold>
 
-    // <editor-fold defaultstate="collapsed" desc="初始化直播间数据，上报观看热度、获取直播频道信息">
-    private void initRoomData() {
-        // 生成直播api管理器实例
+    // <editor-fold defaultstate="collapsed" desc="直播业务管理器 - 初始化，上报观看热度、获取直播频道信息">
+    private void initRoomManager() {
+        // 生成直播业务管理器实例
         liveRoomManager = new PLVLiveRoomManager(liveRoomData);
 
         // 上报观看热度
@@ -276,7 +275,7 @@ public class PLVECLiveActivity extends PLVBaseActivity {
         liveRoomData.getCommodityVO().observe(this, new Observer<PolyvCommodityVO>() {
             @Override
             public void onChanged(@Nullable PolyvCommodityVO polyvCommodityVO) {
-                liveHomeFragment.setCommodityVO(polyvCommodityVO);
+                liveHomeFragment.setCommodityVO(liveRoomManager.getCommodityRank(), polyvCommodityVO);
             }
         });
 

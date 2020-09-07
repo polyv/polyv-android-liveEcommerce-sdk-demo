@@ -18,26 +18,31 @@ import com.easefun.polyv.cloudclass.chat.event.PolyvLoginRefuseEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvLogoutEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvReloginEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvSpeakEvent;
+import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductControlEvent;
+import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductEvent;
+import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductMoveEvent;
+import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductRemoveEvent;
 import com.easefun.polyv.cloudclass.chat.send.custom.PolyvBaseCustomEvent;
 import com.easefun.polyv.cloudclass.chat.send.custom.PolyvCustomEvent;
 import com.easefun.polyv.cloudclass.model.bulletin.PolyvBulletinVO;
 import com.easefun.polyv.foundationsdk.log.PolyvCommonLog;
 import com.easefun.polyv.foundationsdk.rx.PolyvRxBus;
 import com.easefun.polyv.foundationsdk.utils.PolyvGsonUtil;
+import com.easefun.polyv.livecommon.config.PLVLiveChannelConfig;
+import com.easefun.polyv.livecommon.data.IPLVLiveRoomData;
 import com.easefun.polyv.livecommon.modules.chatroom.PLVChatroomMessage;
 import com.easefun.polyv.livecommon.modules.chatroom.PLVCustomGiftBean;
 import com.easefun.polyv.livecommon.modules.chatroom.contract.IPLVChatroomContract;
 import com.easefun.polyv.livecommon.modules.chatroom.holder.PLVChatMessageItemType;
 import com.easefun.polyv.livecommon.modules.chatroom.model.PLVChatroomData;
-import com.easefun.polyv.livecommon.contract.PLVAbsViewPresenter;
-import com.easefun.polyv.livecommon.dataservice.IPLVLiveRoomData;
+import com.easefun.polyv.livecommon.ui.widget.itemview.PLVBaseViewData;
 import com.easefun.polyv.livecommon.utils.PLVReflectionUtils;
 import com.easefun.polyv.livecommon.utils.span.PLVTextFaceLoader;
-import com.easefun.polyv.livecommon.ui.widget.itemview.PLVBaseViewData;
 import com.easefun.polyv.thirdpart.blankj.utilcode.util.ConvertUtils;
 import com.easefun.polyv.thirdpart.blankj.utilcode.util.Utils;
 import com.google.gson.reflect.TypeToken;
 
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,12 +57,13 @@ import io.reactivex.schedulers.Schedulers;
 /**
  * mvp-聊天室presenter层实现
  */
-public class PLVChatroomPresenter extends PLVAbsViewPresenter<IPLVChatroomContract.IChatroomView> implements IPLVChatroomContract.IChatroomPresenter {
+public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPresenter {
     private static final String TAG = "PLVChatroomPresenter";
     private static final int CHAT_MESSAGE_TIMESPAN = 500;
-    private Disposable messageDisposable;
-
+    private IPLVLiveRoomData liveRoomData;
     private PLVChatroomData chatroomData;
+    private WeakReference<IPLVChatroomContract.IChatroomView> vWeakReference;
+    private Disposable messageDisposable;
 
     public PLVChatroomPresenter(@NonNull IPLVLiveRoomData liveRoomData) {
         this.liveRoomData = liveRoomData;
@@ -67,20 +73,17 @@ public class PLVChatroomPresenter extends PLVAbsViewPresenter<IPLVChatroomContra
 
     // <editor-fold defaultstate="collapsed" desc="presenter方法">
     @Override
-    protected void setPresenterToView() {
-        if (isAlive()) {
-            getView().setPresenter(this);
-        }
+    public void registerView(@NonNull IPLVChatroomContract.IChatroomView v) {
+        this.vWeakReference = new WeakReference<>(v);
+        v.setPresenter(this);
     }
 
     @Override
-    public void destroy() {
-        super.destroy();
-        if (messageDisposable != null) {
-            messageDisposable.dispose();
+    public void unregisterView() {
+        if (vWeakReference != null) {
+            vWeakReference.clear();
+            vWeakReference = null;
         }
-        PolyvChatManager.getInstance().destroy();//销毁，会移除实例及所有的监听器
-        PLVReflectionUtils.cleanFields(this);
     }
 
     @Override
@@ -154,7 +157,7 @@ public class PLVChatroomPresenter extends PLVAbsViewPresenter<IPLVChatroomContra
         int sendValue = PolyvChatManager.getInstance().sendChatMessage(textMessage);
         if (sendValue > 0 || sendValue == PolyvLocalMessage.SENDVALUE_BANIP) {
             chatroomData.postLocalMessage(textMessage);
-            if (isAlive()) {
+            if (getView() != null) {
                 getView().onLocalMessage(textMessage);
             }
         }
@@ -213,6 +216,26 @@ public class PLVChatroomPresenter extends PLVAbsViewPresenter<IPLVChatroomContra
         PolyvCommonLog.d(TAG, "chatroom disconnect");
         PolyvChatManager.getInstance().disconnect();
     }
+
+    @Override
+    public void destroy() {
+        unregisterView();
+        if (messageDisposable != null) {
+            messageDisposable.dispose();
+        }
+        PolyvChatManager.getInstance().destroy();//销毁，会移除实例及所有的监听器
+        PLVReflectionUtils.cleanFields(this);
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="获取view、config">
+    private IPLVChatroomContract.IChatroomView getView() {
+        return vWeakReference != null ? vWeakReference.get() : null;
+    }
+
+    private PLVLiveChannelConfig getConfig() {
+        return liveRoomData.getConfig();
+    }
     // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="聊天室事件订阅及处理">
@@ -220,29 +243,29 @@ public class PLVChatroomPresenter extends PLVAbsViewPresenter<IPLVChatroomContra
         switch (status) {
             case PolyvConnectStatusListener.STATUS_DISCONNECT:
                 if (t != null) {
-                    if (isAlive()) {
+                    if (getView() != null) {
                         getView().handleLoginFailed(t);
                     }
                 }//t为null时为sdk内部的断开重连或者退出，无需处理
                 break;
             case PolyvConnectStatusListener.STATUS_LOGINING:
-                if (isAlive()) {
+                if (getView() != null) {
                     getView().handleLoginIng(false);
                 }
                 break;
             case PolyvConnectStatusListener.STATUS_LOGINSUCCESS:
-                if (isAlive()) {
+                if (getView() != null) {
                     getView().handleLoginSuccess(false);
                 }
                 break;
             case PolyvConnectStatusListener.STATUS_RECONNECTING:
-                if (isAlive()) {
+                if (getView() != null) {
                     getView().handleLoginIng(true);
                 }
                 break;
             case PolyvConnectStatusListener.STATUS_RECONNECTSUCCESS:
-                if (isAlive()) {
-                    getView().handleLoginIng(true);
+                if (getView() != null) {
+                    getView().handleLoginSuccess(true);
                 }
                 break;
         }
@@ -299,7 +322,7 @@ public class PLVChatroomPresenter extends PLVAbsViewPresenter<IPLVChatroomContra
                                 //自己的送礼信息
                             } else {
                                 //其他用户的送礼信息
-                                if (isAlive()) {
+                                if (getView() != null) {
                                     getView().onCustomGiftEvent(customGiftEvent.getUser(), customGiftEvent.getData());
                                 }
                             }
@@ -315,13 +338,13 @@ public class PLVChatroomPresenter extends PLVAbsViewPresenter<IPLVChatroomContra
                         if (speakEvent != null) {
                             //把带表情的信息解析保存下来
                             int textSize = ConvertUtils.dp2px(12);
-                            if (isAlive()) {
+                            if (getView() != null) {
                                 textSize = (getView().onSpeakTextSize() <= 0) ? textSize : getView().onSpeakTextSize();
                             }
                             speakEvent.setObjects(PLVTextFaceLoader.messageToSpan(speakEvent.getValues().get(0), textSize, Utils.getApp()));
                             chatMessage = speakEvent;
                             itemType = PLVChatMessageItemType.ITEMTYPE_SPEAK;
-                            if (isAlive()) {
+                            if (getView() != null) {
                                 getView().onSpeakEvent(speakEvent);
                             }
                         }
@@ -333,7 +356,7 @@ public class PLVChatroomPresenter extends PLVAbsViewPresenter<IPLVChatroomContra
                             if (!PolyvChatManager.getInstance().userId.equals(chatImgEvent.getUser().getUserId())) {
                                 chatMessage = chatImgEvent;
                                 itemType = PLVChatMessageItemType.ITEMTYPE_IMG;
-                                if (isAlive()) {
+                                if (getView() != null) {
                                     getView().onImgEvent(chatImgEvent);
                                 }
                             }
@@ -344,7 +367,7 @@ public class PLVChatroomPresenter extends PLVAbsViewPresenter<IPLVChatroomContra
                         PolyvLikesEvent likesEvent = PolyvEventHelper.getEventObject(PolyvLikesEvent.class, message, event);
                         if (likesEvent != null) {
                             if (!PolyvChatManager.getInstance().userId.equals(likesEvent.getUserId())) {
-                                if (isAlive()) {
+                                if (getView() != null) {
                                     getView().onLikesEvent(likesEvent);
                                 }
                             }
@@ -354,7 +377,7 @@ public class PLVChatroomPresenter extends PLVAbsViewPresenter<IPLVChatroomContra
                     case PolyvChatManager.EVENT_LOGIN:
                         PolyvLoginEvent loginEvent = PolyvEventHelper.getEventObject(PolyvLoginEvent.class, message, event);
                         if (loginEvent != null) {
-                            if (isAlive()) {
+                            if (getView() != null) {
                                 getView().onLoginEvent(loginEvent);
                             }
                         }
@@ -363,7 +386,7 @@ public class PLVChatroomPresenter extends PLVAbsViewPresenter<IPLVChatroomContra
                     case PolyvChatManager.EVENT_LOGOUT:
                         PolyvLogoutEvent logoutEvent = PolyvEventHelper.getEventObject(PolyvLogoutEvent.class, message, event);
                         if (logoutEvent != null) {
-                            if (isAlive()) {
+                            if (getView() != null) {
                                 getView().onLogoutEvent(logoutEvent);
                             }
                         }
@@ -373,7 +396,7 @@ public class PLVChatroomPresenter extends PLVAbsViewPresenter<IPLVChatroomContra
                         PolyvBulletinVO bulletinVO = PolyvGsonUtil.fromJson(PolyvBulletinVO.class, message);
                         if (bulletinVO != null) {
                             chatroomData.postBulletinVO(bulletinVO);
-                            if (isAlive()) {
+                            if (getView() != null) {
                                 getView().onBulletinEvent(bulletinVO);
                             }
                         }
@@ -381,15 +404,43 @@ public class PLVChatroomPresenter extends PLVAbsViewPresenter<IPLVChatroomContra
                     //删除公告事件
                     case PolyvSocketEvent.BULLETIN_REMOVE:
                         chatroomData.postBulletinVO(null);
-                        if (isAlive()) {
+                        if (getView() != null) {
                             getView().onRemoveBulletinEvent();
+                        }
+                        break;
+                    //商品操作事件
+                    case PolyvChatManager.EVENT_PRODUCT_MESSAGE:
+                        PolyvProductEvent productEvent = PolyvEventHelper.gson.fromJson(message, PolyvProductEvent.class);
+                        if (productEvent != null) {
+                            if (productEvent.isProductControlEvent()) {
+                                PolyvProductControlEvent productControlEvent = PolyvEventHelper.gson.fromJson(message, PolyvProductControlEvent.class);
+                                if (productControlEvent != null) {
+                                    if (getView() != null) {
+                                        getView().onProductControlEvent(productControlEvent);
+                                    }
+                                }
+                            } else if (productEvent.isProductRemoveEvent()) {
+                                PolyvProductRemoveEvent productRemoveEvent = PolyvEventHelper.gson.fromJson(message, PolyvProductRemoveEvent.class);
+                                if (productRemoveEvent != null) {
+                                    if (getView() != null) {
+                                        getView().onProductRemoveEvent(productRemoveEvent);
+                                    }
+                                }
+                            } else if (productEvent.isProductMoveEvent()) {
+                                PolyvProductMoveEvent productMoveEvent = PolyvEventHelper.gson.fromJson(message, PolyvProductMoveEvent.class);
+                                if (productMoveEvent != null) {
+                                    if (getView() != null) {
+                                        getView().onProductMoveEvent(productMoveEvent);
+                                    }
+                                }
+                            }
                         }
                         break;
                     //聊天室房间开启/关闭事件
                     case PolyvChatManager.EVENT_CLOSEROOM:
                         PolyvCloseRoomEvent closeRoomEvent = PolyvEventHelper.getEventObject(PolyvCloseRoomEvent.class, message, event);
                         if (closeRoomEvent != null) {
-                            if (isAlive()) {
+                            if (getView() != null) {
                                 getView().onCloseRoomEvent(closeRoomEvent);
                             }
                         }
@@ -399,7 +450,7 @@ public class PLVChatroomPresenter extends PLVAbsViewPresenter<IPLVChatroomContra
                         PolyvKickEvent kickEvent = PolyvEventHelper.getEventObject(PolyvKickEvent.class, message, event);
                         if (kickEvent != null) {
                             boolean isOwn = PolyvChatManager.getInstance().userId.equals(kickEvent.getUser().getUserId());
-                            if (isAlive()) {
+                            if (getView() != null) {
                                 getView().onKickEvent(kickEvent, isOwn);
                             }
                         }
@@ -410,7 +461,7 @@ public class PLVChatroomPresenter extends PLVAbsViewPresenter<IPLVChatroomContra
                         if (loginRefuseEvent != null) {
                             //收到该事件处理后需要退出登录，否则sdk内部每次重连都会触发该回调
                             disconnect();
-                            if (isAlive()) {
+                            if (getView() != null) {
                                 getView().onLoginRefuseEvent(loginRefuseEvent);
                             }
                         }
@@ -420,7 +471,7 @@ public class PLVChatroomPresenter extends PLVAbsViewPresenter<IPLVChatroomContra
                         PolyvReloginEvent reloginEvent = PolyvEventHelper.getEventObject(PolyvReloginEvent.class, message, event);
                         if (reloginEvent != null) {
                             if (PolyvChatManager.getInstance().userId.equals(reloginEvent.getUser().getUserId())) {
-                                if (isAlive()) {
+                                if (getView() != null) {
                                     getView().onReloginEvent(reloginEvent);
                                 }
                             }
@@ -433,7 +484,7 @@ public class PLVChatroomPresenter extends PLVAbsViewPresenter<IPLVChatroomContra
             }
         }
         if (chatMessageDataList.size() > 0) {
-            if (isAlive()) {
+            if (getView() != null) {
                 getView().onChatMessageDataList(chatMessageDataList);
             }
         }

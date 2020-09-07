@@ -1,5 +1,6 @@
 package com.easefun.polyv.livecommon.modules.player.playback.view;
 
+import android.support.annotation.NonNull;
 import android.view.View;
 
 import com.easefun.polyv.businesssdk.api.common.player.PolyvPlayError;
@@ -9,7 +10,12 @@ import com.easefun.polyv.livecommon.modules.player.playback.contract.IPLVPlaybac
 /**
  * mvp-回放播放器view层抽象类
  */
-public abstract class PLVAbsPlaybackPlayerView implements IPLVPlaybackPlayerContract.IPLVPlaybackPlayerView {
+public abstract class PLVAbsPlaybackPlayerView implements IPLVPlaybackPlayerContract.IPlaybackPlayerView {
+    @Override
+    public void setPresenter(@NonNull IPLVPlaybackPlayerContract.IPlaybackPlayerPresenter presenter) {
+
+    }
+
     @Override
     public PolyvPlaybackVideoView getPlaybackVideoView() {
         return null;
@@ -37,11 +43,6 @@ public abstract class PLVAbsPlaybackPlayerView implements IPLVPlaybackPlayerCont
 
     @Override
     public void onBufferEnd() {
-
-    }
-
-    @Override
-    public void setPresenter(IPLVPlaybackPlayerContract.IPLVPlaybackPlayerPresenter presenter) {
 
     }
 }

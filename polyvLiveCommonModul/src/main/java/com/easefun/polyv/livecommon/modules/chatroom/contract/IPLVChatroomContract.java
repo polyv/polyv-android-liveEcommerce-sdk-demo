@@ -13,13 +13,14 @@ import com.easefun.polyv.cloudclass.chat.event.PolyvLoginRefuseEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvLogoutEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvReloginEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvSpeakEvent;
+import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductControlEvent;
+import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductMoveEvent;
+import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductRemoveEvent;
 import com.easefun.polyv.cloudclass.chat.send.custom.PolyvBaseCustomEvent;
 import com.easefun.polyv.cloudclass.chat.send.custom.PolyvCustomEvent;
 import com.easefun.polyv.cloudclass.model.bulletin.PolyvBulletinVO;
 import com.easefun.polyv.livecommon.modules.chatroom.PLVCustomGiftBean;
 import com.easefun.polyv.livecommon.modules.chatroom.model.PLVChatroomData;
-import com.easefun.polyv.livecommon.contract.IPLVAbsViewPresenter;
-import com.easefun.polyv.livecommon.contract.IPLVBaseView;
 import com.easefun.polyv.livecommon.ui.widget.itemview.PLVBaseViewData;
 
 import java.util.List;
@@ -30,7 +31,10 @@ import java.util.List;
 public interface IPLVChatroomContract {
 
     //mvp-聊天室view层接口，登录状态回调信息的线程皆为主线程，event信息回调的线程皆为子线程
-    interface IChatroomView extends IPLVBaseView<IChatroomPresenter> {
+    interface IChatroomView {
+        //设置presenter
+        void setPresenter(@NonNull IChatroomPresenter presenter);
+
         //登录/重连中
         void handleLoginIng(boolean isReconnect);
 
@@ -64,6 +68,15 @@ public interface IPLVChatroomContract {
         //移除公告事件
         void onRemoveBulletinEvent();
 
+        //商品上架/新增/编辑/推送事件
+        void onProductControlEvent(@NonNull PolyvProductControlEvent productControlEvent);
+
+        //商品下架/删除事件
+        void onProductRemoveEvent(@NonNull PolyvProductRemoveEvent productRemoveEvent);
+
+        //商品上移/下移事件
+        void onProductMoveEvent(@NonNull PolyvProductMoveEvent productMoveEvent);
+
         //房间开启/关闭事件
         void onCloseRoomEvent(@NonNull PolyvCloseRoomEvent closeRoomEvent);
 
@@ -87,7 +100,17 @@ public interface IPLVChatroomContract {
     }
 
     //mvp-聊天室presenter层接口
-    interface IChatroomPresenter extends IPLVAbsViewPresenter<IChatroomView> {
+    interface IChatroomPresenter {
+        /**
+         * 注册view
+         */
+        void registerView(@NonNull IChatroomView v);
+
+        /**
+         * 解除注册的view
+         */
+        void unregisterView();
+
         /**
          * 初始化聊天室配置，该方法内部会设置聊天室的状态、信息监听器
          */
@@ -144,7 +167,6 @@ public interface IPLVChatroomContract {
         /**
          * 销毁，包括销毁聊天室操作、解除view操作
          */
-        @Override
         void destroy();
     }
 }

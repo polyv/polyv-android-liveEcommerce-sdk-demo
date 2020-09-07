@@ -5,7 +5,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-import com.easefun.polyv.cloudclass.model.commodity.PolyvCommodityVO;
+import com.easefun.polyv.cloudclass.model.commodity.saas.PolyvProductContentBean;
 import com.easefun.polyv.livecommon.ui.widget.itemview.PLVBaseViewData;
 import com.easefun.polyv.livecommon.ui.widget.itemview.adapter.PLVBaseAdapter;
 import com.easefun.polyv.livecommon.ui.widget.itemview.holder.PLVBaseViewHolder;
@@ -19,6 +19,7 @@ import java.util.List;
  */
 public class PLVECCommodityAdapter extends PLVBaseAdapter<PLVBaseViewData, PLVBaseViewHolder<PLVBaseViewData, PLVECCommodityAdapter>> {
     private List<PLVBaseViewData> dataList;
+    private int lastExistedRank = -1;//列表中最后存在过的商品rank
 
     public PLVECCommodityAdapter() {
         dataList = new ArrayList<>();
@@ -31,6 +32,130 @@ public class PLVECCommodityAdapter extends PLVBaseAdapter<PLVBaseViewData, PLVBa
 
     public void setDataList(List<PLVBaseViewData> dataList) {
         this.dataList = dataList;
+        if (this.dataList.size() > 0) {
+            lastExistedRank = ((PolyvProductContentBean) this.dataList.get(this.dataList.size() - 1).getData()).getRank();
+        } else {
+            lastExistedRank = -1;
+        }
+    }
+
+    public void addDataList(List<PLVBaseViewData> dataList) {
+        if (dataList.isEmpty()) {
+            return;
+        }
+        int oldSize = this.dataList.size();
+        this.dataList.addAll(dataList);
+        lastExistedRank = ((PolyvProductContentBean) this.dataList.get(this.dataList.size() - 1).getData()).getRank();
+        notifyItemRangeInserted(oldSize, dataList.size());
+    }
+
+    //新增
+    public void add(int index, PolyvProductContentBean contentBean) {
+        dataList.add(index, new PLVBaseViewData(contentBean, PLVBaseViewData.ITEMTYPE_UNDEFINED));
+        notifyItemRangeInserted(index, 1);
+        if (index == 0) {//only use insert 0, old index 0 padding not update
+            notifyItemChanged(1);
+        } else {
+            for (int i = 0; i < index; i++) {//更新显示序号
+                PolyvProductContentBean content = (PolyvProductContentBean) dataList.get(i).getData();
+                content.setShowId(content.getShowId() + 1);
+            }
+            notifyItemRangeChanged(0, index, "payload");
+
+            updateLastExistedRank(index, contentBean);
+        }
+    }
+
+    //更新
+    public void update(int index, PolyvProductContentBean contentBean) {
+        dataList.remove(index);
+        dataList.add(index, new PLVBaseViewData(contentBean, PLVBaseViewData.ITEMTYPE_UNDEFINED));
+        notifyItemChanged(index);
+
+        updateLastExistedRank(index, contentBean);
+    }
+
+    //删除
+    public void delete(int index) {
+        dataList.remove(index);
+        notifyItemRemoved(index);
+        if (index == 0) {//only use delete 0, old index 0 padding not update
+            notifyItemChanged(0);
+        } else {
+            for (int i = 0; i < index; i++) {//更新显示序号
+                PolyvProductContentBean content = (PolyvProductContentBean) dataList.get(i).getData();
+                content.setShowId(content.getShowId() - 1);
+            }
+            notifyItemRangeChanged(0, index, "payload");
+        }
+    }
+
+    //上/下移动
+    public void move(PolyvProductContentBean handleContent, PolyvProductContentBean contentBean) {
+        int handleIndex = isExistProduct(handleContent.getProductId());
+        int index = isExistProduct(contentBean.getProductId());
+        if (handleIndex == -1 && index == -1) {//操作的商品都不在列表中
+            return;
+        }
+        if (handleIndex != -1 && index != -1) {//操作的商品都在列表中
+            dataList.remove(handleIndex);
+            dataList.add(index, new PLVBaseViewData(handleContent, PLVBaseViewData.ITEMTYPE_UNDEFINED));
+
+            dataList.remove(handleIndex > index ? index + 1 : index - 1);
+            dataList.add(handleIndex, new PLVBaseViewData(contentBean, PLVBaseViewData.ITEMTYPE_UNDEFINED));
+
+            notifyItemChanged(handleIndex);
+            notifyItemChanged(index);
+
+            updateLastExistedRank(index, handleContent);
+            updateLastExistedRank(handleIndex, contentBean);
+        } else {//只有一个操作的商品在列表中
+            if (handleIndex != -1) {
+                if (contentBean.isPullOffShelvesStatus()) {//未上架的不添加到列表中
+                    ((PolyvProductContentBean) dataList.get(handleIndex).getData()).setRank(handleContent.getRank());//更新rank
+                    return;
+                }
+                dataList.remove(handleIndex);
+                dataList.add(handleIndex, new PLVBaseViewData(contentBean, PLVBaseViewData.ITEMTYPE_UNDEFINED));
+                notifyItemChanged(handleIndex);
+
+                updateLastExistedRank(handleIndex, contentBean);
+            } else {
+                if (handleContent.isPullOffShelvesStatus()) {//未上架的不添加到列表中
+                    ((PolyvProductContentBean) dataList.get(index).getData()).setRank(contentBean.getRank());//更新rank
+                    return;
+                }
+                dataList.remove(index);
+                dataList.add(index, new PLVBaseViewData(handleContent, PLVBaseViewData.ITEMTYPE_UNDEFINED));
+                notifyItemChanged(index);
+
+                updateLastExistedRank(index, handleContent);
+            }
+        }
+    }
+
+    //是否存在相同商品id在列表中
+    public int isExistProduct(int productId) {
+        int index = -1;
+        for (PLVBaseViewData baseViewData : dataList) {
+            index++;
+            PolyvProductContentBean contentBean = (PolyvProductContentBean) baseViewData.getData();
+            if (contentBean.getProductId() == productId) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    //获取列表中最后存在过的商品rank，即时被删除
+    public int getLastExistedRank() {
+        return lastExistedRank;
+    }
+
+    private void updateLastExistedRank(int index, PolyvProductContentBean contentBean) {
+        if (index == dataList.size() - 1) {
+            lastExistedRank = lastExistedRank == -1 ? contentBean.getRank() : Math.min(contentBean.getRank(), lastExistedRank);
+        }
     }
 
     // <editor-fold defaultstate="collapsed" desc="点击事件">
@@ -41,10 +166,12 @@ public class PLVECCommodityAdapter extends PLVBaseAdapter<PLVBaseViewData, PLVBa
     }
 
     public interface OnViewActionListener {
-        void onBuyCommodityClick(View view, PolyvCommodityVO.DataBean.ContentsBean contentsBean);
+        void onBuyCommodityClick(View view, PolyvProductContentBean contentsBean);
+
+        void onLoadMoreData(int rank);
     }
 
-    public void callOnBuyCommodityClick(View view, PolyvCommodityVO.DataBean.ContentsBean contentsBean) {
+    public void callOnBuyCommodityClick(View view, PolyvProductContentBean contentsBean) {
         if (onViewActionListener != null) {
             onViewActionListener.onBuyCommodityClick(view, contentsBean);
         }
@@ -55,6 +182,17 @@ public class PLVECCommodityAdapter extends PLVBaseAdapter<PLVBaseViewData, PLVBa
     @Override
     public PLVBaseViewHolder<PLVBaseViewData, PLVECCommodityAdapter> onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         return new PLVECCommodityViewHolder(LayoutInflater.from(parent.getContext()).inflate(R.layout.plvec_live_commodity_list_item, parent, false), this);
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull PLVBaseViewHolder<PLVBaseViewData, PLVECCommodityAdapter> holder, int position, @NonNull List<Object> payloads) {
+        if (payloads.isEmpty()) {
+            onBindViewHolder(holder, position);
+        } else {
+            if (holder instanceof PLVECCommodityViewHolder) {
+                ((PLVECCommodityViewHolder) holder).updateNumberView(((PolyvProductContentBean) dataList.get(position).getData()).getShowId());
+            }
+        }
     }
 
     @Override

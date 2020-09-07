@@ -14,21 +14,25 @@ import com.easefun.polyv.businesssdk.model.video.PolyvMediaPlayMode;
 import com.easefun.polyv.cloudclass.video.PolyvCloudClassVideoView;
 import com.easefun.polyv.cloudclass.video.api.IPolyvCloudClassListenerEvent;
 import com.easefun.polyv.foundationsdk.config.PolyvPlayOption;
-import com.easefun.polyv.livecommon.contract.PLVAbsViewPresenter;
-import com.easefun.polyv.livecommon.dataservice.IPLVLiveRoomData;
+import com.easefun.polyv.livecommon.config.PLVLiveChannelConfig;
+import com.easefun.polyv.livecommon.data.IPLVLiveRoomData;
 import com.easefun.polyv.livecommon.modules.player.live.contract.IPLVLivePlayerContract;
 import com.easefun.polyv.livecommon.modules.player.live.model.PLVLivePlayerData;
 import com.easefun.polyv.livecommon.utils.PLVReflectionUtils;
 import com.easefun.polyv.livecommon.utils.imageloader.PLVImageLoader;
 
+import java.lang.ref.WeakReference;
+
 /**
  * mvp-直播播放器presenter层实现
  */
-public class PLVLivePlayerPresenter extends PLVAbsViewPresenter<IPLVLivePlayerContract.IPLVLivePlayerView> implements IPLVLivePlayerContract.IPLVLivePlayerPresenter {
+public class PLVLivePlayerPresenter implements IPLVLivePlayerContract.ILivePlayerPresenter {
+    private IPLVLiveRoomData liveRoomData;
+    private PLVLivePlayerData livePlayerData;
+    private WeakReference<IPLVLivePlayerContract.ILivePlayerView> vWeakReference;
+
     private PolyvCloudClassVideoView videoView;
     private PolyvAuxiliaryVideoview subVideoView;
-
-    private PLVLivePlayerData livePlayerData;
 
     public PLVLivePlayerPresenter(@NonNull IPLVLiveRoomData liveRoomData) {
         this.liveRoomData = liveRoomData;
@@ -37,15 +41,22 @@ public class PLVLivePlayerPresenter extends PLVAbsViewPresenter<IPLVLivePlayerCo
 
     // <editor-fold defaultstate="collapsed" desc="presenter方法">
     @Override
-    protected void setPresenterToView() {
-        if (isAlive()) {
-            getView().setPresenter(this);
+    public void registerView(@NonNull IPLVLivePlayerContract.ILivePlayerView v) {
+        this.vWeakReference = new WeakReference<>(v);
+        v.setPresenter(this);
+    }
+
+    @Override
+    public void unregisterView() {
+        if (vWeakReference != null) {
+            vWeakReference.clear();
+            vWeakReference = null;
         }
     }
 
     @Override
     public void init() {
-        if (!isAlive()) {
+        if (getView() == null) {
             return;
         }
         //init data
@@ -53,15 +64,6 @@ public class PLVLivePlayerPresenter extends PLVAbsViewPresenter<IPLVLivePlayerCo
         subVideoView = getView().getSubVideoView();
         initSubVideoViewListener();
         initVideoViewListener();
-    }
-
-    @Override
-    public void destroy() {
-        super.destroy();
-        if (videoView != null) {
-            videoView.destroy();
-        }
-        PLVReflectionUtils.cleanFields(this);
     }
 
     @Override
@@ -133,6 +135,25 @@ public class PLVLivePlayerPresenter extends PLVAbsViewPresenter<IPLVLivePlayerCo
     public PLVLivePlayerData getData() {
         return livePlayerData;
     }
+
+    @Override
+    public void destroy() {
+        unregisterView();
+        if (videoView != null) {
+            videoView.destroy();
+        }
+        PLVReflectionUtils.cleanFields(this);
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="获取view、config">
+    private IPLVLivePlayerContract.ILivePlayerView getView() {
+        return vWeakReference != null ? vWeakReference.get() : null;
+    }
+
+    private PLVLiveChannelConfig getConfig() {
+        return liveRoomData.getConfig();
+    }
     // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="初始化subVideo, videoView的监听器配置">
@@ -141,7 +162,7 @@ public class PLVLivePlayerPresenter extends PLVAbsViewPresenter<IPLVLivePlayerCo
             subVideoView.setOnVideoPlayListener(new IPolyvVideoViewListenerEvent.OnVideoPlayListener() {
                 @Override
                 public void onPlay(boolean isFirst) {
-                    if (isAlive()) {
+                    if (getView() != null) {
                         getView().onSubVideoViewPlay(isFirst);
                     }
                 }
@@ -171,7 +192,7 @@ public class PLVLivePlayerPresenter extends PLVAbsViewPresenter<IPLVLivePlayerCo
                             : error.isMainStage() ? "主视频" : "";
                     tips += "播放异常\n" + error.errorDescribe + " (errorCode:" + error.errorCode +
                             "-" + error.playStage + ")\n" + error.playPath;
-                    if (isAlive()) {
+                    if (getView() != null) {
                         getView().onPlayError(error, tips);
                     }
                 }
@@ -181,7 +202,7 @@ public class PLVLivePlayerPresenter extends PLVAbsViewPresenter<IPLVLivePlayerCo
                 public void onNoLiveAtPresent() {
                     videoView.removeRenderView();
                     livePlayerData.postNoLive();
-                    if (isAlive()) {
+                    if (getView() != null) {
                         getView().onNoLiveAtPresent();
                     }
                 }
@@ -189,7 +210,7 @@ public class PLVLivePlayerPresenter extends PLVAbsViewPresenter<IPLVLivePlayerCo
                 @Override
                 public void onLiveEnd() {
                     livePlayerData.postLiveEnd();
-                    if (isAlive()) {
+                    if (getView() != null) {
                         getView().onLiveEnd();
                     }
                 }
@@ -202,7 +223,7 @@ public class PLVLivePlayerPresenter extends PLVAbsViewPresenter<IPLVLivePlayerCo
                     if (videoView.getMediaPlayMode() == PolyvMediaPlayMode.MODE_AUDIO) {
                         videoView.removeRenderView();//need clear&unregister
                     }
-                    if (isAlive()) {
+                    if (getView() != null) {
                         getView().onPrepared(videoView.getMediaPlayMode());
                     }
                 }
@@ -214,7 +235,7 @@ public class PLVLivePlayerPresenter extends PLVAbsViewPresenter<IPLVLivePlayerCo
                 @Override
                 public void OnLinesChanged(int routePos) {
                     livePlayerData.postRouteChange(routePos);
-                    if (isAlive()) {
+                    if (getView() != null) {
                         getView().onRouteChanged(routePos);
                     }
                 }
@@ -224,10 +245,10 @@ public class PLVLivePlayerPresenter extends PLVAbsViewPresenter<IPLVLivePlayerCo
 
     private void setDefaultViewStatus() {
         videoView.removeRenderView();
-        if (isAlive() && getView().getBufferingIndicator() != null) {
+        if (getView() != null && getView().getBufferingIndicator() != null) {
             getView().getBufferingIndicator().setVisibility(View.GONE);
         }
-        if (isAlive() && getView().getNoStreamIndicator() != null) {
+        if (getView() != null && getView().getNoStreamIndicator() != null) {
             getView().getNoStreamIndicator().setVisibility(View.VISIBLE);
         }
     }

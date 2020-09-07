@@ -12,8 +12,8 @@ import android.widget.FrameLayout;
 
 import com.easefun.polyv.cloudclass.model.PolyvLiveClassDetailVO;
 import com.easefun.polyv.livecommon.config.PLVLiveChannelConfig;
-import com.easefun.polyv.livecommon.dataservice.IPLVLiveRoomData;
-import com.easefun.polyv.livecommon.dataservice.PLVLiveRoomData;
+import com.easefun.polyv.livecommon.data.IPLVLiveRoomData;
+import com.easefun.polyv.livecommon.data.PLVLiveRoomData;
 import com.easefun.polyv.livecommon.modules.liveroom.IPLVLiveRoomManager;
 import com.easefun.polyv.livecommon.modules.liveroom.PLVLiveRoomManager;
 import com.easefun.polyv.livecommon.modules.player.playback.contract.IPLVPlaybackPlayerContract;
@@ -55,8 +55,8 @@ public class PLVECPlaybackActivity extends PLVBaseActivity {
      * P 是底层处理，代码封装在 polyvLiveComoonModule 中，一般不需要修改；
      */
     // MVP模式 - 播放器
-    private IPLVPlaybackPlayerContract.IPLVPlaybackPlayerPresenter playbackPlayerPresenter; // 播放器MVP模式中 的 P
-    private IPLVPlaybackPlayerContract.IPLVPlaybackPlayerView playbackPlayerView; // 播放器MVP模式中 的 V
+    private IPLVPlaybackPlayerContract.IPlaybackPlayerPresenter playbackPlayerPresenter; // 播放器MVP模式中 的 P
+    private IPLVPlaybackPlayerContract.IPlaybackPlayerView playbackPlayerView; // 播放器MVP模式中 的 V
 
     // 直播间业务管理器
     private IPLVLiveRoomManager liveRoomManager;
@@ -83,7 +83,7 @@ public class PLVECPlaybackActivity extends PLVBaseActivity {
         initParams();
         initView();
         initPlaybackPlayerMVP();
-        initRoomData();
+        initRoomManager();
     }
 
     @Override
@@ -181,20 +181,7 @@ public class PLVECPlaybackActivity extends PLVBaseActivity {
     }
     // </editor-fold>
 
-    // <editor-fold defaultstate="collapsed" desc="初始化直播间数据，上报观看热度、获取直播频道信息">
-    private void initRoomData() {
-        // 生成直播api管理器实例
-        liveRoomManager = new PLVLiveRoomManager(liveRoomData);
-
-        // 上报观看热度
-        liveRoomManager.increasePageViewer(null);
-
-        // 获取直播详情数据
-        liveRoomManager.getLiveDetail(null);
-    }
-    // </editor-fold>
-
-    // <editor-fold defaultstate="collapsed" desc="注册播放器view层实例到presenter，并开始播放">
+    // <editor-fold defaultstate="collapsed" desc="播放器 - MVP模式 初始化">
     private void initPlaybackPlayerMVP() {
         // 获取 V
         playbackPlayerView = playbackVideoLayout.getPlaybackPlayerView();
@@ -208,6 +195,19 @@ public class PLVECPlaybackActivity extends PLVBaseActivity {
         // 进行 P 的初始化操作
         playbackPlayerPresenter.init();
         playbackPlayerPresenter.startPlay();
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="直播业务管理器 - 初始化，上报观看热度、获取直播频道信息">
+    private void initRoomManager() {
+        // 生成直播业务管理器实例
+        liveRoomManager = new PLVLiveRoomManager(liveRoomData);
+
+        // 上报观看热度
+        liveRoomManager.increasePageViewer(null);
+
+        // 获取直播详情数据
+        liveRoomManager.getLiveDetail(null);
     }
     // </editor-fold>
 

@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -25,10 +26,14 @@ import com.easefun.polyv.cloudclass.chat.event.PolyvLoginRefuseEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvLogoutEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvReloginEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvSpeakEvent;
+import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductControlEvent;
+import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductMoveEvent;
+import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductRemoveEvent;
 import com.easefun.polyv.cloudclass.chat.send.custom.PolyvCustomEvent;
 import com.easefun.polyv.cloudclass.model.PolyvLiveClassDetailVO;
 import com.easefun.polyv.cloudclass.model.bulletin.PolyvBulletinVO;
-import com.easefun.polyv.cloudclass.model.commodity.PolyvCommodityVO;
+import com.easefun.polyv.cloudclass.model.commodity.saas.PolyvCommodityVO;
+import com.easefun.polyv.cloudclass.model.commodity.saas.PolyvProductContentBean;
 import com.easefun.polyv.livecommon.modules.chatroom.PLVCustomGiftBean;
 import com.easefun.polyv.livecommon.modules.chatroom.contract.IPLVChatroomContract;
 import com.easefun.polyv.livecommon.modules.chatroom.holder.PLVChatMessageItemType;
@@ -49,12 +54,14 @@ import com.easefun.polyv.liveecommerce.modules.chatroom.widget.PLVECGreetingView
 import com.easefun.polyv.liveecommerce.modules.chatroom.widget.PLVECLikeIconView;
 import com.easefun.polyv.liveecommerce.modules.commodity.PLVECCommodityAdapter;
 import com.easefun.polyv.liveecommerce.modules.commodity.PLVECCommodityPopupView;
+import com.easefun.polyv.liveecommerce.modules.commodity.PLVECCommodityPushLayout;
 import com.easefun.polyv.liveecommerce.modules.reward.PLVECRewardGiftAdapter;
 import com.easefun.polyv.liveecommerce.modules.reward.PLVECRewardPopupView;
 import com.easefun.polyv.liveecommerce.modules.reward.widget.PLVECRewardGiftAnimView;
 import com.easefun.polyv.liveecommerce.scenes.fragments.widget.PLVECMorePopupView;
 import com.easefun.polyv.liveecommerce.scenes.fragments.widget.PLVECWatchInfoView;
 import com.easefun.polyv.thirdpart.blankj.utilcode.util.ConvertUtils;
+import com.easefun.polyv.thirdpart.blankj.utilcode.util.ToastUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -91,6 +98,8 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
     //商品
     private ImageView commodityIv;
     private PLVECCommodityPopupView commodityPopupView;
+    private boolean isOpenCommodityMenu;
+    private PLVECCommodityPushLayout commodityPushLayout;
     //打赏
     private ImageView rewardIv;
     private PLVECRewardPopupView rewardPopupView;
@@ -142,6 +151,7 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
         moreIv.setOnClickListener(this);
         commodityIv = findViewById(R.id.commodity_iv);
         commodityIv.setOnClickListener(this);
+        commodityPushLayout = findViewById(R.id.commodity_push_ly);
         rewardIv = findViewById(R.id.reward_iv);
         rewardIv.setOnClickListener(this);
         rewardGiftAnimView = findViewById(R.id.reward_ly);
@@ -153,7 +163,7 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
     }
     // </editor-fold>
 
-    // <editor-fold defaultstate="collapsed" desc="观看信息 - 数据处理">
+    // <editor-fold defaultstate="collapsed" desc="观看信息、商品列表开关 - 数据处理">
     public void setClassDetailVO(PolyvLiveClassDetailVO liveClassDetailVO) {
         if (liveClassDetailVO == null) {
             return;
@@ -167,6 +177,11 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
         likeCountTv.setVisibility(View.VISIBLE);
         watchInfoLy.updateWatchInfo(dataBean.getCoverImage(), dataBean.getPublisher(), currentWatchCount = (dataBean.getPageView() + 1));
         watchInfoLy.setVisibility(View.VISIBLE);
+        //根据商品列表开关来显示/隐藏商品库按钮
+        if (liveClassDetailVO.isOpenCommodity()) {
+            commodityIv.setVisibility(View.VISIBLE);
+            isOpenCommodityMenu = true;
+        }
     }
     // </editor-fold>
 
@@ -203,8 +218,14 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
     }
     // </editor-fold>
 
-    // <editor-fold defaultstate="collapsed" desc="聊天室 - view层事件处理">
+    // <editor-fold defaultstate="collapsed" desc="聊天室 - view层事件处理，获取实例">
     private PLVAbsChatroomView chatroomView = new PLVAbsChatroomView() {
+        @Override
+        public void setPresenter(@NonNull IPLVChatroomContract.IChatroomPresenter presenter) {
+            super.setPresenter(presenter);
+            chatroomPresenter = presenter;
+        }
+
         @Override
         public void handleLoginIng(boolean isReconnect) {
             super.handleLoginIng(isReconnect);
@@ -276,6 +297,24 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
         }
 
         @Override
+        public void onProductControlEvent(@NonNull PolyvProductControlEvent productControlEvent) {
+            super.onProductControlEvent(productControlEvent);
+            acceptProductControlEvent(productControlEvent);
+        }
+
+        @Override
+        public void onProductRemoveEvent(@NonNull PolyvProductRemoveEvent productRemoveEvent) {
+            super.onProductRemoveEvent(productRemoveEvent);
+            acceptProductRemoveEvent(productRemoveEvent);
+        }
+
+        @Override
+        public void onProductMoveEvent(@NonNull PolyvProductMoveEvent productMoveEvent) {
+            super.onProductMoveEvent(productMoveEvent);
+            acceptProductMoveEvent(productMoveEvent);
+        }
+
+        @Override
         public void onCloseRoomEvent(@NonNull PolyvCloseRoomEvent closeRoomEvent) {
             super.onCloseRoomEvent(closeRoomEvent);
         }
@@ -320,16 +359,8 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
             super.onChatMessageDataList(chatMessageDataList);
             addChatMessageToList(chatMessageDataList);
         }
-
-        @Override
-        public void setPresenter(IPLVChatroomContract.IChatroomPresenter presenter) {
-            super.setPresenter(presenter);
-            chatroomPresenter = presenter;
-        }
     };
-    // </editor-fold>
 
-    // <editor-fold defaultstate="collapsed" desc="聊天室 - 获取view层实例">
     public IPLVChatroomContract.IChatroomView getChatroomView() {
         return chatroomView;
     }
@@ -447,8 +478,12 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
     // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="商品 - 数据处理，布局显示、商品链接跳转">
-    public void setCommodityVO(PolyvCommodityVO commodityVO) {
-        commodityPopupView.setCommodityVO(commodityVO);
+    public void setCommodityVO(int rank, PolyvCommodityVO commodityVO) {
+        if (rank > -1) {
+            commodityPopupView.addCommodityVO(commodityVO);
+        } else {
+            commodityPopupView.setCommodityVO(commodityVO);
+        }
     }
 
     private void showCommodityLayout(View v) {
@@ -456,15 +491,97 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
         commodityPopupView.setCommodityVO(null);
         //每次弹出都调用一次接口获取商品信息
         if (onViewActionListener != null) {
-            onViewActionListener.onGetCommodityVOAction();
+            onViewActionListener.onGetCommodityVOAction(-1);
         }
         commodityPopupView.showCommodityLayout(v, new PLVECCommodityAdapter.OnViewActionListener() {
             @Override
-            public void onBuyCommodityClick(View view, PolyvCommodityVO.DataBean.ContentsBean contentsBean) {
+            public void onBuyCommodityClick(View view, PolyvProductContentBean contentsBean) {
                 commodityPopupView.hide();
-                Uri uri = Uri.parse(contentsBean.getLink());
+                String link = contentsBean.isNormalLink() ? contentsBean.getLink() : contentsBean.getMobileAppLink();
+                if (TextUtils.isEmpty(link)) {
+                    ToastUtils.showShort("暂不支持移动端购买");
+                    return;
+                }
+                //默认用浏览器打开后端填写的链接，另外也可以根据后端填写的信息自行调整需要的操作
+                Uri uri = Uri.parse(link);
                 Intent intent = new Intent(Intent.ACTION_VIEW, uri);
                 startActivity(intent);
+            }
+
+            @Override
+            public void onLoadMoreData(int rank) {
+                if (onViewActionListener != null) {
+                    onViewActionListener.onGetCommodityVOAction(rank);
+                }
+            }
+        });
+    }
+
+    private void acceptProductControlEvent(final PolyvProductControlEvent productControlEvent) {
+        if (!isOpenCommodityMenu) {
+            return;
+        }
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                final PolyvProductContentBean contentBean = productControlEvent.getContent();
+                if (productControlEvent.getContent() == null) {
+                    return;
+                }
+                if (productControlEvent.isPush()) {//商品推送
+                    commodityPushLayout.setViewActionListener(new PLVECCommodityPushLayout.ViewActionListener() {
+                        @Override
+                        public void onEnterClick() {
+                            commodityPushLayout.hide();
+                            String link = contentBean.isNormalLink() ? contentBean.getLink() : contentBean.getMobileAppLink();
+                            if (TextUtils.isEmpty(link)) {
+                                ToastUtils.showShort("暂不支持移动端购买");
+                                return;
+                            }
+                            //默认用浏览器打开后端填写的链接，另外也可以根据后端填写的信息自行调整需要的操作
+                            Uri uri = Uri.parse(link);
+                            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                            startActivity(intent);
+                        }
+                    });
+                    commodityPushLayout.updateView(contentBean.getProductId(), contentBean.getShowId(), contentBean.getCover(), contentBean.getName(), contentBean.getRealPrice(), contentBean.getPrice());
+                    commodityPushLayout.show();
+                } else if (productControlEvent.isNewly()) {//新增
+                    commodityPopupView.add(contentBean, true);
+                } else if (productControlEvent.isRedact()) {//编辑
+                    commodityPopupView.update(contentBean);
+                } else if (productControlEvent.isPutOnShelves()) {//上架
+                    commodityPopupView.add(contentBean, false);
+                }
+            }
+        });
+    }
+
+    private void acceptProductRemoveEvent(final PolyvProductRemoveEvent productRemoveEvent) {
+        if (!isOpenCommodityMenu) {
+            return;
+        }
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (productRemoveEvent.getContent() != null) {
+                    commodityPopupView.delete(productRemoveEvent.getContent().getProductId());//删除/下架
+                    if (commodityPushLayout.isShown() && commodityPushLayout.getProductId() == productRemoveEvent.getContent().getProductId()) {
+                        commodityPushLayout.hide();
+                    }
+                }
+            }
+        });
+    }
+
+    private void acceptProductMoveEvent(final PolyvProductMoveEvent productMoveEvent) {
+        if (!isOpenCommodityMenu) {
+            return;
+        }
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                commodityPopupView.move(productMoveEvent);//移动
             }
         });
     }
@@ -578,8 +695,8 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
         //设置播放器的位置
         void onSetVideoViewRectAction(Rect videoViewRect);
 
-        //获取商品信息
-        void onGetCommodityVOAction();
+        //获取商品信息，rank<=-1为拉取最前面的数据
+        void onGetCommodityVOAction(int rank);
 
         void onViewCreated();
     }

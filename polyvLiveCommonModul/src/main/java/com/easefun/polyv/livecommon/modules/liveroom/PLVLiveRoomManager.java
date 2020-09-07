@@ -5,7 +5,7 @@ import android.support.v4.util.ArrayMap;
 
 import com.easefun.polyv.cloudclass.chat.PolyvChatApiRequestHelper;
 import com.easefun.polyv.cloudclass.model.PolyvLiveClassDetailVO;
-import com.easefun.polyv.cloudclass.model.commodity.PolyvCommodityVO;
+import com.easefun.polyv.cloudclass.model.commodity.saas.PolyvCommodityVO;
 import com.easefun.polyv.cloudclass.net.PolyvApiManager;
 import com.easefun.polyv.foundationsdk.net.PolyvResponseBean;
 import com.easefun.polyv.foundationsdk.net.PolyvResponseExcutor;
@@ -13,31 +13,40 @@ import com.easefun.polyv.foundationsdk.net.PolyvrResponseCallback;
 import com.easefun.polyv.foundationsdk.rx.PolyvRxBaseRetryFunction;
 import com.easefun.polyv.foundationsdk.rx.PolyvRxBaseTransformer;
 import com.easefun.polyv.foundationsdk.sign.PolyvSignCreator;
-import com.easefun.polyv.livecommon.dataservice.IPLVLiveRoomData;
-import com.easefun.polyv.livecommon.dataservice.PLVAbsBusinessDataImpl;
+import com.easefun.polyv.livecommon.config.PLVLiveChannelConfig;
+import com.easefun.polyv.livecommon.data.IPLVLiveRoomData;
 import com.easefun.polyv.livecommon.net.IPLVNetRequestListener;
 import com.easefun.polyv.livecommon.utils.PLVReflectionUtils;
 
 import java.util.Map;
 
+import io.reactivex.Observable;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 
 /**
  * 直播间业务管理器，主要用于获取直播api相关的数据
  */
-public class PLVLiveRoomManager extends PLVAbsBusinessDataImpl implements IPLVLiveRoomManager {
+public class PLVLiveRoomManager implements IPLVLiveRoomManager {
+    // <editor-fold defaultstate="collapsed" desc="成员变量">
+    public static final int GET_COMMODITY_COUNT = 20;
+    //直播间数据
+    private IPLVLiveRoomData liveRoomData;
+    //请求商品的rank
+    private int commodityRank;
+    //接口请求disposable
     private Disposable increasePageViewerDisposable;
     private Disposable getLiveDetailDisposable;
     private Disposable getCommodityInfoDisposable;
+    // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="构造方法">
     public PLVLiveRoomManager(@NonNull IPLVLiveRoomData liveRoomData) {
         this.liveRoomData = liveRoomData;
     }
+    // </editor-fold>
 
-    /**
-     * 上报观看热度
-     */
+    // <editor-fold defaultstate="collapsed" desc="观看热度 - 请求、取消">
     @Override
     public void increasePageViewer(final IPLVNetRequestListener<Integer> listener) {
         disposableIncreasePageViewer();
@@ -81,19 +90,15 @@ public class PLVLiveRoomManager extends PLVAbsBusinessDataImpl implements IPLVLi
                 });
     }
 
-    /**
-     * 取消上报热度接口的请求
-     */
     @Override
     public void disposableIncreasePageViewer() {
         if (increasePageViewerDisposable != null) {
             increasePageViewerDisposable.dispose();
         }
     }
+    // </editor-fold>
 
-    /**
-     * 获取直播详情数据
-     */
+    // <editor-fold defaultstate="collapsed" desc="直播详情 - 请求、取消">
     @Override
     public void getLiveDetail(final IPLVNetRequestListener<PolyvLiveClassDetailVO> listener) {
         disposableGetLiveDetail();
@@ -118,34 +123,45 @@ public class PLVLiveRoomManager extends PLVAbsBusinessDataImpl implements IPLVLi
                 });
     }
 
-    /**
-     * 取消直播详情接口的请求
-     */
     @Override
     public void disposableGetLiveDetail() {
         if (getLiveDetailDisposable != null) {
             getLiveDetailDisposable.dispose();
         }
     }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="商品信息 - 请求、取消">
+    @Override
+    public void getCommodityInfo(IPLVNetRequestListener<PolyvCommodityVO> listener) {
+        getCommodityInfo(-1, listener);
+    }
 
     @Override
-    public void getCommodityInfo(final IPLVNetRequestListener<PolyvCommodityVO> listener) {
+    public void getCommodityInfo(int rank, final IPLVNetRequestListener<PolyvCommodityVO> listener) {
+        this.commodityRank = rank;
         disposableGetCommodityInfo();
         String channelId = getConfig().getChannelId();
         String appId = getConfig().getAccount().getAppId();
         String appSecret = getConfig().getAccount().getAppSecret();
         long timestamp = System.currentTimeMillis();
-        int page = 1;
-        final int limit = 200;
+        int count = GET_COMMODITY_COUNT;
         Map<String, String> map = new ArrayMap<>();
         map.put("appId", appId);
         map.put("timestamp", timestamp + "");
         map.put("channelId", channelId);
-        map.put("page", page + "");
-        map.put("limit", limit + "");
+        map.put("count", count + "");
+        if (rank > -1) {
+            map.put("rank", rank + "");
+        }
         String sign = PolyvSignCreator.createSign(appSecret, map);
-        getCommodityInfoDisposable = PolyvApiManager.getPolyvLiveStatusApi().getCommodityInfo(Integer.valueOf(channelId), appId, timestamp, page, limit, sign)
-                .retryWhen(new PolyvRxBaseRetryFunction(3, 3000))
+        Observable<PolyvCommodityVO> commodityVOObservable;
+        if (rank > -1) {
+            commodityVOObservable = PolyvApiManager.getPolyvLiveStatusApi().getProductList(channelId, appId, timestamp, count, rank, sign);
+        } else {
+            commodityVOObservable = PolyvApiManager.getPolyvLiveStatusApi().getProductList(channelId, appId, timestamp, count, sign);
+        }
+        getCommodityInfoDisposable = commodityVOObservable.retryWhen(new PolyvRxBaseRetryFunction(3, 3000))
                 .compose(new PolyvRxBaseTransformer<PolyvCommodityVO, PolyvCommodityVO>())
                 .subscribe(new Consumer<PolyvCommodityVO>() {
                     @Override
@@ -166,16 +182,30 @@ public class PLVLiveRoomManager extends PLVAbsBusinessDataImpl implements IPLVLi
     }
 
     @Override
+    public int getCommodityRank() {
+        return commodityRank;
+    }
+
+    @Override
     public void disposableGetCommodityInfo() {
         if (getCommodityInfoDisposable != null) {
             getCommodityInfoDisposable.dispose();
         }
     }
+    // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="销毁">
     @Override
     public void destroy() {
         disposableIncreasePageViewer();
         disposableGetLiveDetail();
         PLVReflectionUtils.cleanFields(this);
     }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="获取config">
+    private PLVLiveChannelConfig getConfig() {
+        return liveRoomData.getConfig();
+    }
+    // </editor-fold>
 }

@@ -12,6 +12,9 @@ import com.easefun.polyv.cloudclass.chat.event.PolyvLoginRefuseEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvLogoutEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvReloginEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvSpeakEvent;
+import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductControlEvent;
+import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductMoveEvent;
+import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductRemoveEvent;
 import com.easefun.polyv.cloudclass.chat.send.custom.PolyvCustomEvent;
 import com.easefun.polyv.cloudclass.model.bulletin.PolyvBulletinVO;
 import com.easefun.polyv.livecommon.modules.chatroom.PLVCustomGiftBean;
@@ -24,6 +27,11 @@ import java.util.List;
  * mvp-聊天室view层抽象类
  */
 public abstract class PLVAbsChatroomView implements IPLVChatroomContract.IChatroomView {
+    @Override
+    public void setPresenter(@NonNull IPLVChatroomContract.IChatroomPresenter presenter) {
+
+    }
+
     @Override
     public void handleLoginIng(boolean isReconnect) {
 
@@ -80,6 +88,21 @@ public abstract class PLVAbsChatroomView implements IPLVChatroomContract.IChatro
     }
 
     @Override
+    public void onProductControlEvent(@NonNull PolyvProductControlEvent productControlEvent) {
+
+    }
+
+    @Override
+    public void onProductRemoveEvent(@NonNull PolyvProductRemoveEvent productRemoveEvent) {
+
+    }
+
+    @Override
+    public void onProductMoveEvent(@NonNull PolyvProductMoveEvent productMoveEvent) {
+
+    }
+
+    @Override
     public void onCloseRoomEvent(@NonNull PolyvCloseRoomEvent closeRoomEvent) {
 
     }
@@ -111,11 +134,6 @@ public abstract class PLVAbsChatroomView implements IPLVChatroomContract.IChatro
 
     @Override
     public void onChatMessageDataList(List<PLVBaseViewData> chatMessageDataList) {
-
-    }
-
-    @Override
-    public void setPresenter(IPLVChatroomContract.IChatroomPresenter presenter) {
 
     }
 }

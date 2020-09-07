@@ -28,7 +28,7 @@ public class PLVECPlaybackVideoLayout extends FrameLayout {
     //播放器view
     private PolyvPlaybackVideoView videoView;
     //播放器presenter
-    private IPLVPlaybackPlayerContract.IPLVPlaybackPlayerPresenter playbackPlayerPresenter;
+    private IPLVPlaybackPlayerContract.IPlaybackPlayerPresenter playbackPlayerPresenter;
     // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="构造方法">
@@ -53,8 +53,14 @@ public class PLVECPlaybackVideoLayout extends FrameLayout {
     }
     // </editor-fold>
 
-    // <editor-fold defaultstate="collapsed" desc="播放器view事件处理">
+    // <editor-fold defaultstate="collapsed" desc="播放器 - view层事件处理，获取实例">
     private PLVAbsPlaybackPlayerView playbackPlayerView = new PLVAbsPlaybackPlayerView() {
+        @Override
+        public void setPresenter(@NonNull IPLVPlaybackPlayerContract.IPlaybackPlayerPresenter presenter) {
+            super.setPresenter(presenter);
+            playbackPlayerPresenter = presenter;
+        }
+
         @Override
         public PolyvPlaybackVideoView getPlaybackVideoView() {
             return videoView;
@@ -88,17 +94,9 @@ public class PLVECPlaybackVideoLayout extends FrameLayout {
             super.onBufferEnd();
             PolyvCommonLog.i(TAG, "缓冲结束");
         }
-
-        @Override
-        public void setPresenter(IPLVPlaybackPlayerContract.IPLVPlaybackPlayerPresenter presenter) {
-            super.setPresenter(presenter);
-            playbackPlayerPresenter = presenter;
-        }
     };
-    // </editor-fold>
 
-    // <editor-fold defaultstate="collapsed" desc="获取播放器view层实例">
-    public IPLVPlaybackPlayerContract.IPLVPlaybackPlayerView getPlaybackPlayerView() {
+    public IPLVPlaybackPlayerContract.IPlaybackPlayerView getPlaybackPlayerView() {
         return playbackPlayerView;
     }
     // </editor-fold>

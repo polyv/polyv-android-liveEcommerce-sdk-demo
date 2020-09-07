@@ -1,5 +1,6 @@
 package com.easefun.polyv.livecommon.modules.player.live.view;
 
+import android.support.annotation.NonNull;
 import android.view.View;
 
 import com.easefun.polyv.businesssdk.api.auxiliary.PolyvAuxiliaryVideoview;
@@ -12,7 +13,12 @@ import com.easefun.polyv.livecommon.modules.player.live.contract.IPLVLivePlayerC
 /**
  * mvp-直播播放器view层抽象类
  */
-public abstract class PLVAbsLivePlayerView implements IPLVLivePlayerContract.IPLVLivePlayerView {
+public abstract class PLVAbsLivePlayerView implements IPLVLivePlayerContract.ILivePlayerView {
+    @Override
+    public void setPresenter(@NonNull IPLVLivePlayerContract.ILivePlayerPresenter presenter) {
+
+    }
+
     @Override
     public PolyvCloudClassVideoView getCloudClassVideoView() {
         return null;
@@ -70,11 +76,6 @@ public abstract class PLVAbsLivePlayerView implements IPLVLivePlayerContract.IPL
 
     @Override
     public void onRouteChanged(int routePos) {
-
-    }
-
-    @Override
-    public void setPresenter(IPLVLivePlayerContract.IPLVLivePlayerPresenter presenter) {
 
     }
 }
