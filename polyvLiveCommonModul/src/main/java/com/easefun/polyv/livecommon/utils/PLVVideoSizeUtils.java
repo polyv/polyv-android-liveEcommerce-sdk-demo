@@ -39,7 +39,7 @@ public class PLVVideoSizeUtils {
         videoViewParent.invalidate();
     }
 
-    //适配播放器的视频比例，如果宽>高，那么使用等比缩放，否则使用等比填充父窗
+    //适配播放器的视频比例，如果宽>=高，那么使用等比缩放，否则使用等比填充父窗
     public static int fitVideoRatio(PolyvBaseVideoView baseVideoView) {
         int ratio = -1;
         if (baseVideoView != null) {

@@ -1,15 +1,19 @@
 package com.easefun.polyv.livecommon.modules.player.live.contract;
 
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.view.View;
 
 import com.easefun.polyv.businesssdk.api.auxiliary.PolyvAuxiliaryVideoview;
 import com.easefun.polyv.businesssdk.api.common.meidaControl.IPolyvMediaController;
 import com.easefun.polyv.businesssdk.api.common.player.PolyvPlayError;
+import com.easefun.polyv.businesssdk.model.video.PolyvDefinitionVO;
 import com.easefun.polyv.businesssdk.model.video.PolyvMediaPlayMode;
 import com.easefun.polyv.cloudclass.video.PolyvCloudClassVideoView;
 import com.easefun.polyv.cloudclass.video.api.IPolyvCloudClassAudioModeView;
 import com.easefun.polyv.livecommon.modules.player.live.model.PLVLivePlayerData;
+
+import java.util.List;
 
 /**
  * mvp-直播播放器契约接口
@@ -84,6 +88,16 @@ public interface IPLVLivePlayerContract {
         //获取可以切换的线路数
         int getRouteCount();
 
+        //获取当前线路可以切换的码率(清晰度)信息
+        @Nullable
+        List<PolyvDefinitionVO> getBitrateVO();
+
+        //获取当前线路索引
+        int getRoutePos();
+
+        //获取当前码率(清晰度)索引
+        int getBitratePos();
+
         //获取播放模式
         int getMediaPlayMode();
 
@@ -92,6 +106,9 @@ public interface IPLVLivePlayerContract {
 
         //切换线路
         void changeRoute(int routePos);
+
+        //切换码率
+        void changeBitRate(int bitRate);
 
         //获取直播播放器数据
         @NonNull

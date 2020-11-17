@@ -1,6 +1,7 @@
 package com.easefun.polyv.livecommon.modules.player.live.presenter;
 
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.view.View;
 import android.widget.ImageView;
 
@@ -10,6 +11,9 @@ import com.easefun.polyv.businesssdk.api.common.player.PolyvPlayError;
 import com.easefun.polyv.businesssdk.api.common.player.listener.IPolyvVideoViewListenerEvent;
 import com.easefun.polyv.businesssdk.model.video.PolyvBaseVideoParams;
 import com.easefun.polyv.businesssdk.model.video.PolyvCloudClassVideoParams;
+import com.easefun.polyv.businesssdk.model.video.PolyvDefinitionVO;
+import com.easefun.polyv.businesssdk.model.video.PolyvLiveChannelVO;
+import com.easefun.polyv.businesssdk.model.video.PolyvLiveLinesVO;
 import com.easefun.polyv.businesssdk.model.video.PolyvMediaPlayMode;
 import com.easefun.polyv.cloudclass.video.PolyvCloudClassVideoView;
 import com.easefun.polyv.cloudclass.video.api.IPolyvCloudClassListenerEvent;
@@ -22,6 +26,8 @@ import com.easefun.polyv.livecommon.utils.PLVReflectionUtils;
 import com.easefun.polyv.livecommon.utils.imageloader.PLVImageLoader;
 
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * mvp-直播播放器presenter层实现
@@ -108,6 +114,41 @@ public class PLVLivePlayerPresenter implements IPLVLivePlayerContract.ILivePlaye
                 ? 1 : videoView.getModleVO().getLines().size();
     }
 
+    @Nullable
+    @Override
+    public List<PolyvDefinitionVO> getBitrateVO() {
+        List<PolyvDefinitionVO> definitionVOS = null;
+        if (videoView != null) {
+            PolyvLiveChannelVO channelVO = videoView.getModleVO();
+            if (channelVO != null) {
+                List<PolyvLiveLinesVO> liveLines = channelVO.getLines();
+                if (liveLines != null) {
+                    PolyvLiveLinesVO linesVO = liveLines.get(getRoutePos());//当前线路信息
+                    if (linesVO != null && linesVO.getMultirateModel() != null) {
+                        if (channelVO.isMutilrateEnable()) {
+                            definitionVOS = linesVO.getMultirateModel().getDefinitions();
+                        } else {
+                            definitionVOS = new ArrayList<>();
+                            definitionVOS.add(new PolyvDefinitionVO(linesVO.getMultirateModel().getDefaultDefinition()
+                                    , linesVO.getMultirateModel().getDefaultDefinitionUrl()));
+                        }
+                    }
+                }
+            }
+        }
+        return definitionVOS;
+    }
+
+    @Override
+    public int getRoutePos() {
+        return videoView == null ? 0 : videoView.getLinesPos();
+    }
+
+    @Override
+    public int getBitratePos() {
+        return videoView == null ? 0 : videoView.getBitratePos();
+    }
+
     @Override
     public int getMediaPlayMode() {
         if (videoView != null) {
@@ -127,6 +168,13 @@ public class PLVLivePlayerPresenter implements IPLVLivePlayerContract.ILivePlaye
     public void changeRoute(int routePos) {
         if (videoView != null) {
             videoView.changeLines(routePos);
+        }
+    }
+
+    @Override
+    public void changeBitRate(int bitRate) {
+        if (videoView != null) {
+            videoView.changeBitRate(bitRate);
         }
     }
 

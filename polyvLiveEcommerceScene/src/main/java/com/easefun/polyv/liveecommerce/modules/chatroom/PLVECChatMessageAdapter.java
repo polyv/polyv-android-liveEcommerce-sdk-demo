@@ -1,10 +1,16 @@
 package com.easefun.polyv.liveecommerce.modules.chatroom;
 
 import android.support.annotation.NonNull;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.easefun.polyv.cloudclass.chat.PolyvLocalMessage;
+import com.easefun.polyv.cloudclass.chat.event.PolyvChatImgEvent;
+import com.easefun.polyv.cloudclass.chat.event.PolyvSpeakEvent;
+import com.easefun.polyv.cloudclass.chat.history.PolyvChatImgHistory;
+import com.easefun.polyv.cloudclass.chat.history.PolyvSpeakHistory;
 import com.easefun.polyv.livecommon.modules.chatroom.holder.PLVChatMessageItemType;
 import com.easefun.polyv.livecommon.ui.widget.itemview.PLVBaseViewData;
 import com.easefun.polyv.livecommon.ui.widget.itemview.adapter.PLVBaseAdapter;
@@ -57,6 +63,48 @@ public class PLVECChatMessageAdapter extends PLVBaseAdapter<PLVBaseViewData, PLV
         notifyItemRangeInserted(size, dataList.size());
     }
 
+    public void addDataListChangedAtFirst(List<PLVBaseViewData> dataList) {
+        this.dataList.addAll(0, dataList);
+        notifyItemRangeInserted(0, dataList.size());
+    }
+
+    public void removeDataChanged(String id) {
+        if (TextUtils.isEmpty(id)) {
+            return;
+        }
+        int removeFullDataPosition = -1;
+        for (PLVBaseViewData baseViewData : dataList) {
+            removeFullDataPosition++;
+            if (baseViewData.getData() instanceof PolyvSpeakEvent
+                    && id.equals(((PolyvSpeakEvent) baseViewData.getData()).getId())) {
+                dataList.remove(baseViewData);
+                break;
+            } else if (baseViewData.getData() instanceof PolyvSpeakHistory
+                    && id.equals(((PolyvSpeakHistory) baseViewData.getData()).getId())) {
+                dataList.remove(baseViewData);
+                break;
+            } else if (baseViewData.getData() instanceof PolyvChatImgEvent
+                    && id.equals(((PolyvChatImgEvent) baseViewData.getData()).getId())) {
+                dataList.remove(baseViewData);
+                break;
+            } else if (baseViewData.getData() instanceof PolyvChatImgHistory
+                    && id.equals(((PolyvChatImgHistory) baseViewData.getData()).getId())) {
+                dataList.remove(baseViewData);
+                break;
+            } else if (baseViewData.getData() instanceof PolyvLocalMessage
+                    && id.equals(((PolyvLocalMessage) baseViewData.getData()).getId())) {
+                dataList.remove(baseViewData);
+                break;
+            }
+        }
+        notifyItemRemoved(removeFullDataPosition);
+    }
+
+    public void removeAllDataChanged() {
+        this.dataList.clear();
+        notifyDataSetChanged();
+    }
+
     @NonNull
     @Override
     public PLVBaseViewHolder<PLVBaseViewData, PLVECChatMessageAdapter> onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -71,6 +119,12 @@ public class PLVECChatMessageAdapter extends PLVBaseAdapter<PLVBaseViewData, PLV
             case PLVChatMessageItemType.ITEMTYPE_IMG:
                 viewHolder = new PLVECChatMessageImgViewHolder(
                         LayoutInflater.from(parent.getContext()).inflate(R.layout.plvec_chat_message_img_item, parent, false),
+                        this
+                );
+                break;
+            case PLVChatMessageItemType.ITEMTYPE_CUSTOM_GIFT:
+                viewHolder = new PLVECChatMessageCustomGiftViewHolder(
+                        LayoutInflater.from(parent.getContext()).inflate(R.layout.plvec_chat_message_custom_gift_item, parent, false),
                         this
                 );
                 break;

@@ -44,6 +44,16 @@ public interface IPLVLiveRoomData {
     void postCommodityVO(PolyvCommodityVO commodityVal);
 
     /**
+     * 获取直播状态LiveData
+     */
+    MutableLiveData<PLVLiveRoomData.LiveStatus> getLiveStatusData();
+
+    /**
+     * 提交直播状态数据
+     */
+    void postLiveStatusData(PLVLiveRoomData.LiveStatus liveStatus);
+
+    /**
      * 设置sessionId
      */
     void setSessionId(String sessionId);

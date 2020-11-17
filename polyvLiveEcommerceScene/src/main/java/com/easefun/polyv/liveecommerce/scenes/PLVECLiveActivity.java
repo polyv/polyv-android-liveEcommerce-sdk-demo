@@ -8,9 +8,11 @@ import android.graphics.Rect;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.view.ViewPager;
+import android.util.Pair;
 import android.view.View;
 import android.widget.FrameLayout;
 
+import com.easefun.polyv.businesssdk.model.video.PolyvDefinitionVO;
 import com.easefun.polyv.cloudclass.model.PolyvLiveClassDetailVO;
 import com.easefun.polyv.cloudclass.model.bulletin.PolyvBulletinVO;
 import com.easefun.polyv.cloudclass.model.commodity.saas.PolyvCommodityVO;
@@ -31,6 +33,8 @@ import com.easefun.polyv.liveecommerce.modules.player.PLVECLiveVideoLayout;
 import com.easefun.polyv.liveecommerce.scenes.fragments.PLVECEmptyFragment;
 import com.easefun.polyv.liveecommerce.scenes.fragments.PLVECLiveDetailFragment;
 import com.easefun.polyv.liveecommerce.scenes.fragments.PLVECLiveHomeFragment;
+
+import java.util.List;
 
 /**
  * date: 2020-04-29
@@ -165,6 +169,16 @@ public class PLVECLiveActivity extends PLVBaseActivity {
             }
 
             @Override
+            public Pair<List<PolyvDefinitionVO>, Integer> onShowDefinitionClick(View view) {
+                return new Pair<>(livePlayerPresenter.getBitrateVO(), livePlayerPresenter.getBitratePos());
+            }
+
+            @Override
+            public void onDefinitionChangeClick(View view, int definitionPos) {
+                livePlayerPresenter.changeBitRate(definitionPos);
+            }
+
+            @Override
             public int onGetMediaPlayModeAction() {
                 return livePlayerPresenter.getMediaPlayMode();
             }
@@ -172,6 +186,16 @@ public class PLVECLiveActivity extends PLVBaseActivity {
             @Override
             public int onGetRouteCountAction() {
                 return livePlayerPresenter.getRouteCount();
+            }
+
+            @Override
+            public int onGetRoutePosAction() {
+                return livePlayerPresenter.getRoutePos();
+            }
+
+            @Override
+            public int onGetDefinitionAction() {
+                return livePlayerPresenter.getBitratePos();
             }
 
             @Override
@@ -276,14 +300,6 @@ public class PLVECLiveActivity extends PLVBaseActivity {
             @Override
             public void onChanged(@Nullable PolyvCommodityVO polyvCommodityVO) {
                 liveHomeFragment.setCommodityVO(liveRoomManager.getCommodityRank(), polyvCommodityVO);
-            }
-        });
-
-        //当前页面 监听 播放器数据对象中的线路切换变化
-        livePlayerPresenter.getData().getRoutePos().observe(this, new Observer<Integer>() {
-            @Override
-            public void onChanged(@Nullable Integer integer) {
-                liveHomeFragment.setPlayRoutePos(integer);
             }
         });
 

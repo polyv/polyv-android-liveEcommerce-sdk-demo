@@ -1,6 +1,7 @@
 package com.easefun.polyv.livecommon.modules.chatroom.view;
 
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 
 import com.easefun.polyv.cloudclass.chat.PolyvLocalMessage;
 import com.easefun.polyv.cloudclass.chat.event.PolyvChatImgEvent;
@@ -13,6 +14,7 @@ import com.easefun.polyv.cloudclass.chat.event.PolyvLogoutEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvReloginEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvSpeakEvent;
 import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductControlEvent;
+import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductMenuSwitchEvent;
 import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductMoveEvent;
 import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductRemoveEvent;
 import com.easefun.polyv.cloudclass.chat.send.custom.PolyvCustomEvent;
@@ -103,7 +105,17 @@ public abstract class PLVAbsChatroomView implements IPLVChatroomContract.IChatro
     }
 
     @Override
+    public void onProductMenuSwitchEvent(@NonNull PolyvProductMenuSwitchEvent productMenuSwitchEvent) {
+
+    }
+
+    @Override
     public void onCloseRoomEvent(@NonNull PolyvCloseRoomEvent closeRoomEvent) {
+
+    }
+
+    @Override
+    public void onRemoveMessageEvent(@Nullable String id, boolean isRemoveAll) {
 
     }
 
@@ -134,6 +146,16 @@ public abstract class PLVAbsChatroomView implements IPLVChatroomContract.IChatro
 
     @Override
     public void onChatMessageDataList(List<PLVBaseViewData> chatMessageDataList) {
+
+    }
+
+    @Override
+    public void onHistoryDataList(List<PLVBaseViewData> chatMessageDataList, int requestSuccessTime, boolean isNoMoreHistory) {
+
+    }
+
+    @Override
+    public void onHistoryRequestFailed(String errorMsg, Throwable t) {
 
     }
 }

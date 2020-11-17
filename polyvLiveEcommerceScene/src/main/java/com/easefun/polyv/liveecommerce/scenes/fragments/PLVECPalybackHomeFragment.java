@@ -77,7 +77,7 @@ public class PLVECPalybackHomeFragment extends PLVBaseFragment implements View.O
             return;
         }
         PolyvLiveClassDetailVO.DataBean dataBean = liveClassDetailVO.getData();
-        watchInfoLy.updateWatchInfo(dataBean.getCoverImage(), dataBean.getPublisher(), dataBean.getPageView() + 1);
+        watchInfoLy.updateWatchInfo(dataBean.getCoverImage(), dataBean.getPublisher(), dataBean.getPageView());
         watchInfoLy.setVisibility(View.VISIBLE);
     }
     // </editor-fold>

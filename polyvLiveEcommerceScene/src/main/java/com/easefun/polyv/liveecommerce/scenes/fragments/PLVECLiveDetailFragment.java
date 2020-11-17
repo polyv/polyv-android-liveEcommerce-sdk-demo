@@ -12,6 +12,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import com.easefun.polyv.cloudclass.model.PolyvLiveClassDetailVO;
@@ -21,6 +22,7 @@ import com.easefun.polyv.livecommon.ui.widget.webview.PLVWebViewHelper;
 import com.easefun.polyv.livecommon.ui.window.PLVBaseFragment;
 import com.easefun.polyv.liveecommerce.R;
 import com.easefun.polyv.thirdpart.blankj.utilcode.util.ConvertUtils;
+import com.easefun.polyv.thirdpart.blankj.utilcode.util.ScreenUtils;
 
 /**
  * 直播详情页： 公告、直播介绍
@@ -98,6 +100,17 @@ public class PLVECLiveDetailFragment extends PLVBaseFragment {
         bulletinMsgTv = findViewById(R.id.bulletin_msg_tv);
         introBlurLy = findViewById(R.id.intro_ly);
         introEmtTv = findViewById(R.id.intro_emt_tv);
+
+        //按百分比调整滚动区域的高度
+        ScrollView detailSv = findViewById(R.id.detail_sv);
+        ViewGroup.LayoutParams detailSvLp = detailSv.getLayoutParams();
+        detailSvLp.height = (int) (Math.max(ScreenUtils.getScreenHeight(), ScreenUtils.getScreenWidth()) * 0.66);
+        detailSv.setLayoutParams(detailSvLp);
+        //调整占位view的高度
+        View solidView = findViewById(R.id.solid_view);
+        ViewGroup.LayoutParams solidViewLp = solidView.getLayoutParams();
+        solidViewLp.height = (int) (detailSvLp.height * 0.15);
+        solidView.setLayoutParams(solidViewLp);
     }
     // </editor-fold>
 
