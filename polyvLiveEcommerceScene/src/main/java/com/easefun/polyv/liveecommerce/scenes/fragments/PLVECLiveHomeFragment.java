@@ -244,13 +244,13 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
             @Override
             public void onChanged(@Nullable Long l) {
                 //观看热度
-                watchInfoLy.updateWatchCount(l);
             }
         });
         chatroomPresenter.getData().getOnlineCountData().observe(this, new Observer<Integer>() {
             @Override
             public void onChanged(@Nullable Integer integer) {
                 //在线人数
+                watchInfoLy.updateWatchCount(integer);
             }
         });
     }

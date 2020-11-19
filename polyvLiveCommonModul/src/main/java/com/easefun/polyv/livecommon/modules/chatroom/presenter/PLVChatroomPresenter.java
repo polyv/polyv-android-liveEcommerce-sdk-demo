@@ -88,6 +88,14 @@ public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPrese
     private WeakReference<IPLVChatroomContract.IChatroomView> vWeakReference;
     private Disposable messageDisposable;
 
+    //是否允许分房间功能
+    private boolean allowChildRoom;
+    //是否成功拿到分房间号
+    private boolean isGetChildRoomId;
+    //是否有请求历史记录的事件
+    //分房间需要等聊天室登录成功，拿到分房间的频道号后才能去获取历史记录
+    private boolean hasRequestHistoryEvent;
+
     //点赞数
     private long likesCount;
     //观看热度数
@@ -159,6 +167,7 @@ public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPrese
 
     @Override
     public void setAllowChildRoom(boolean allow) {
+        this.allowChildRoom = allow;
         //如果调用过destroy方法，那么需要重新设置
         PolyvChatManager.getInstance().setAllowChildRoom(allow);
     }
@@ -269,13 +278,21 @@ public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPrese
 
     @Override
     public void requestChatHistory() {
+        if (allowChildRoom) {
+            if (!isGetChildRoomId) {
+                hasRequestHistoryEvent = true;
+                return;
+            }
+        }
+        hasRequestHistoryEvent = false;
         isNoMoreChatHistory = false;
         if (chatHistoryDisposable != null) {
             chatHistoryDisposable.dispose();
         }
         int start = getChatHistoryTime * getChatHistoryCount;
         int end = (getChatHistoryTime + 1) * getChatHistoryCount;
-        chatHistoryDisposable = PolyvApiManager.getPolyvApichatApi().getChatHistory(getConfig().getChannelId(), start, end, 1)
+        String loginRoomId = PolyvChatManager.getInstance().getLoginRoomId();//实际登录聊天室的房间id
+        chatHistoryDisposable = PolyvApiManager.getPolyvApichatApi().getChatHistory(loginRoomId, start, end, 1)
                 .map(new Function<ResponseBody, JSONArray>() {
                     @Override
                     public JSONArray apply(ResponseBody responseBody) throws Exception {
@@ -343,6 +360,8 @@ public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPrese
     public void destroy() {
         getChatHistoryTime = 0;
         isNoMoreChatHistory = false;
+        isGetChildRoomId = false;
+        hasRequestHistoryEvent = false;
         unregisterView();
         if (messageDisposable != null) {
             messageDisposable.dispose();
@@ -466,6 +485,10 @@ public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPrese
                 }
                 break;
             case PolyvConnectStatusListener.STATUS_LOGINSUCCESS:
+                isGetChildRoomId = true;
+                if (hasRequestHistoryEvent) {
+                    requestChatHistory();
+                }
                 if (getView() != null) {
                     getView().handleLoginSuccess(false);
                 }
