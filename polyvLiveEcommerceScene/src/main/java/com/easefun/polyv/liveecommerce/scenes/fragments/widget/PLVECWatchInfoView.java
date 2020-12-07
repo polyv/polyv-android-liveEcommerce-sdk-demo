@@ -42,7 +42,7 @@ public class PLVECWatchInfoView extends FrameLayout {
     }
 
     @SuppressLint("SetTextI18n")
-    public void updateWatchCount(final int watchCount) {
+    public void updateWatchCount(final long watchCount) {
         post(new Runnable() {
             @Override
             public void run() {
@@ -52,7 +52,13 @@ public class PLVECWatchInfoView extends FrameLayout {
     }
 
     @SuppressLint("SetTextI18n")
-    public void updateWatchInfo(String imageUrl, String publisherName, int watchCount) {
+    public void updateWatchInfo(String imageUrl, String publisherName) {
+        PLVImageLoader.getInstance().loadImage(getContext(), imageUrl, avatarIv);
+        nickTv.setText(publisherName);
+    }
+
+    @SuppressLint("SetTextI18n")
+    public void updateWatchInfo(String imageUrl, String publisherName, long watchCount) {
         PLVImageLoader.getInstance().loadImage(getContext(), imageUrl, avatarIv);
         nickTv.setText(publisherName);
         watchCountTv.setText(watchCount + "");

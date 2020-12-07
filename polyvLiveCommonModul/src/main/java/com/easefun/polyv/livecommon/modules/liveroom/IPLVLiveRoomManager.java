@@ -2,6 +2,7 @@ package com.easefun.polyv.livecommon.modules.liveroom;
 
 import com.easefun.polyv.cloudclass.model.PolyvLiveClassDetailVO;
 import com.easefun.polyv.cloudclass.model.commodity.saas.PolyvCommodityVO;
+import com.easefun.polyv.livecommon.data.PLVLiveRoomData;
 import com.easefun.polyv.livecommon.net.IPLVNetRequestListener;
 
 /**
@@ -48,6 +49,16 @@ public interface IPLVLiveRoomManager {
      * 取消商品信息接口的请求
      */
     void disposableGetCommodityInfo();
+
+    /**
+     * 获取直播状态
+     */
+    void getLiveStatus(IPLVNetRequestListener<PLVLiveRoomData.LiveStatus> listener);
+
+    /**
+     * 取消直播状态接口的请求
+     */
+    void disposableGetLiveStatus();
 
     /**
      * 销毁，取消所有的接口请求

@@ -1,6 +1,7 @@
 package com.easefun.polyv.livecommon.modules.chatroom.contract;
 
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.annotation.Size;
 
 import com.easefun.polyv.cloudclass.chat.PolyvLocalMessage;
@@ -14,6 +15,7 @@ import com.easefun.polyv.cloudclass.chat.event.PolyvLogoutEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvReloginEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvSpeakEvent;
 import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductControlEvent;
+import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductMenuSwitchEvent;
 import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductMoveEvent;
 import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductRemoveEvent;
 import com.easefun.polyv.cloudclass.chat.send.custom.PolyvBaseCustomEvent;
@@ -77,8 +79,14 @@ public interface IPLVChatroomContract {
         //商品上移/下移事件
         void onProductMoveEvent(@NonNull PolyvProductMoveEvent productMoveEvent);
 
+        //商品库开关事件
+        void onProductMenuSwitchEvent(@NonNull PolyvProductMenuSwitchEvent productMenuSwitchEvent);
+
         //房间开启/关闭事件
         void onCloseRoomEvent(@NonNull PolyvCloseRoomEvent closeRoomEvent);
+
+        //移除信息事件，移除单条信息的id，如果是移除所有信息，那么必定为null，true：移除所有信息，false：移除单条信息
+        void onRemoveMessageEvent(@Nullable String id, boolean isRemoveAll);
 
         //用户被踢事件，isOwn：是否是自己
         void onKickEvent(@NonNull PolyvKickEvent kickEvent, boolean isOwn);
@@ -97,6 +105,12 @@ public interface IPLVChatroomContract {
 
         //需要添加到列表的文本发言、图片信息
         void onChatMessageDataList(@Size(min = 1) List<PLVBaseViewData> chatMessageDataList);
+
+        //历史记录数据
+        void onHistoryDataList(@Size(min = 0) List<PLVBaseViewData> chatMessageDataList, int requestSuccessTime, boolean isNoMoreHistory);
+
+        //历史记录请求失败回调
+        void onHistoryRequestFailed(String errorMsg, Throwable t);
     }
 
     //mvp-聊天室presenter层接口
@@ -152,6 +166,16 @@ public interface IPLVChatroomContract {
          * @param tip            信息提示文案
          */
         PolyvCustomEvent<PLVCustomGiftBean> sendCustomGiftMessage(PLVCustomGiftBean customGiftBean, String tip);
+
+        /**
+         * 设置每次获取历史记录的条数
+         */
+        void setGetChatHistoryCount(int count);
+
+        /**
+         * 请求聊天历史记录
+         */
+        void requestChatHistory();
 
         /**
          * 获取聊天室的数据

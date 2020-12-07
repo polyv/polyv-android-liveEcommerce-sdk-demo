@@ -1,7 +1,9 @@
 package com.easefun.polyv.livecommon.modules.chatroom.presenter;
 
+import android.arch.lifecycle.Observer;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.text.TextUtils;
 
 import com.easefun.polyv.cloudclass.PolyvSocketEvent;
 import com.easefun.polyv.cloudclass.chat.PolyvChatManager;
@@ -17,15 +19,24 @@ import com.easefun.polyv.cloudclass.chat.event.PolyvLoginEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvLoginRefuseEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvLogoutEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvReloginEvent;
+import com.easefun.polyv.cloudclass.chat.event.PolyvRemoveContentEvent;
+import com.easefun.polyv.cloudclass.chat.event.PolyvRemoveHistoryEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvSpeakEvent;
 import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductControlEvent;
 import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductEvent;
+import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductMenuSwitchEvent;
 import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductMoveEvent;
 import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductRemoveEvent;
+import com.easefun.polyv.cloudclass.chat.history.PolyvChatImgHistory;
+import com.easefun.polyv.cloudclass.chat.history.PolyvHistoryConstant;
+import com.easefun.polyv.cloudclass.chat.history.PolyvSpeakHistory;
 import com.easefun.polyv.cloudclass.chat.send.custom.PolyvBaseCustomEvent;
 import com.easefun.polyv.cloudclass.chat.send.custom.PolyvCustomEvent;
+import com.easefun.polyv.cloudclass.model.PolyvLiveClassDetailVO;
 import com.easefun.polyv.cloudclass.model.bulletin.PolyvBulletinVO;
+import com.easefun.polyv.cloudclass.net.PolyvApiManager;
 import com.easefun.polyv.foundationsdk.log.PolyvCommonLog;
+import com.easefun.polyv.foundationsdk.rx.PolyvRxBaseTransformer;
 import com.easefun.polyv.foundationsdk.rx.PolyvRxBus;
 import com.easefun.polyv.foundationsdk.utils.PolyvGsonUtil;
 import com.easefun.polyv.livecommon.config.PLVLiveChannelConfig;
@@ -35,6 +46,7 @@ import com.easefun.polyv.livecommon.modules.chatroom.PLVCustomGiftBean;
 import com.easefun.polyv.livecommon.modules.chatroom.contract.IPLVChatroomContract;
 import com.easefun.polyv.livecommon.modules.chatroom.holder.PLVChatMessageItemType;
 import com.easefun.polyv.livecommon.modules.chatroom.model.PLVChatroomData;
+import com.easefun.polyv.livecommon.modules.liveroom.PLVLiveRoomManager;
 import com.easefun.polyv.livecommon.ui.widget.itemview.PLVBaseViewData;
 import com.easefun.polyv.livecommon.utils.PLVReflectionUtils;
 import com.easefun.polyv.livecommon.utils.span.PLVTextFaceLoader;
@@ -42,9 +54,13 @@ import com.easefun.polyv.thirdpart.blankj.utilcode.util.ConvertUtils;
 import com.easefun.polyv.thirdpart.blankj.utilcode.util.Utils;
 import com.google.gson.reflect.TypeToken;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -53,22 +69,57 @@ import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
+import io.socket.client.Ack;
+import okhttp3.ResponseBody;
 
 /**
  * mvp-聊天室presenter层实现
  */
 public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPresenter {
     private static final String TAG = "PLVChatroomPresenter";
+    //默认获取的历史记录条数
+    public static final int GET_CHAT_HISTORY_COUNT = 20;
+    //聊天信息处理间隔
     private static final int CHAT_MESSAGE_TIMESPAN = 500;
+    //直播间数据
     private IPLVLiveRoomData liveRoomData;
+    //聊天室数据
     private PLVChatroomData chatroomData;
     private WeakReference<IPLVChatroomContract.IChatroomView> vWeakReference;
     private Disposable messageDisposable;
+
+    //是否允许分房间功能
+    private boolean allowChildRoom;
+    //是否成功拿到分房间号
+    private boolean isGetChildRoomId;
+    //是否有请求历史记录的事件
+    //分房间需要等聊天室登录成功，拿到分房间的频道号后才能去获取历史记录
+    private boolean hasRequestHistoryEvent;
+
+    //点赞数
+    private long likesCount;
+    //观看热度数
+    private long viewerCount;
+    //在线人数
+    private int onlineCount;
+
+    //直播详情数据观察者
+    private Observer<PolyvLiveClassDetailVO> classDetailVOObserver;
+
+    //获取的历史记录条数
+    private int getChatHistoryCount = GET_CHAT_HISTORY_COUNT;
+    //获取历史记录成功的次数
+    private int getChatHistoryTime;
+    //是否没有更多历史记录
+    private boolean isNoMoreChatHistory;
+    //获取历史记录的disposable
+    private Disposable chatHistoryDisposable;
 
     public PLVChatroomPresenter(@NonNull IPLVLiveRoomData liveRoomData) {
         this.liveRoomData = liveRoomData;
         chatroomData = new PLVChatroomData();
         subscribeChatroomMessage();
+        observeLiveRoomData();
     }
 
     // <editor-fold defaultstate="collapsed" desc="presenter方法">
@@ -116,6 +167,7 @@ public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPrese
 
     @Override
     public void setAllowChildRoom(boolean allow) {
+        this.allowChildRoom = allow;
         //如果调用过destroy方法，那么需要重新设置
         PolyvChatManager.getInstance().setAllowChildRoom(allow);
     }
@@ -153,9 +205,24 @@ public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPrese
      * @param textMessage 要发送的信息，不能为空
      */
     @Override
-    public int sendTextMessage(PolyvLocalMessage textMessage) {
-        int sendValue = PolyvChatManager.getInstance().sendChatMessage(textMessage);
-        if (sendValue > 0 || sendValue == PolyvLocalMessage.SENDVALUE_BANIP) {
+    public int sendTextMessage(final PolyvLocalMessage textMessage) {
+        int sendValue = PolyvChatManager.getInstance().sendChatMessage(textMessage, true, new Ack() {
+            @Override
+            public void call(Object... args) {
+                PolyvCommonLog.d(TAG, "chatroom sendTextMessage call: " + Arrays.toString(args));
+                if (args == null || args.length == 0 || args[0] == null) {
+                    return;
+                }
+                //信息发送成功后，保存信息id
+                textMessage.setId(String.valueOf(args[0]));
+                chatroomData.postLocalMessage(textMessage);
+                if (getView() != null) {
+                    getView().onLocalMessage(textMessage);
+                }
+
+            }
+        });
+        if (sendValue == PolyvLocalMessage.SENDVALUE_BANIP) {
             chatroomData.postLocalMessage(textMessage);
             if (getView() != null) {
                 getView().onLocalMessage(textMessage);
@@ -172,6 +239,8 @@ public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPrese
     public void sendLikeMessage() {
         PolyvCommonLog.d(TAG, "chatroom sendLikeMessage: " + liveRoomData.getSessionId());
         PolyvChatManager.getInstance().sendLikes(liveRoomData.getSessionId());
+        likesCount++;
+        chatroomData.postLikesCountData(likesCount);
     }
 
     /**
@@ -202,6 +271,76 @@ public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPrese
         return customEvent;
     }
 
+    @Override
+    public void setGetChatHistoryCount(int getChatHistoryCount) {
+        this.getChatHistoryCount = getChatHistoryCount;
+    }
+
+    @Override
+    public void requestChatHistory() {
+        if (allowChildRoom) {
+            if (!isGetChildRoomId) {
+                hasRequestHistoryEvent = true;
+                return;
+            }
+        }
+        hasRequestHistoryEvent = false;
+        isNoMoreChatHistory = false;
+        if (chatHistoryDisposable != null) {
+            chatHistoryDisposable.dispose();
+        }
+        int start = getChatHistoryTime * getChatHistoryCount;
+        int end = (getChatHistoryTime + 1) * getChatHistoryCount;
+        String loginRoomId = PolyvChatManager.getInstance().getLoginRoomId();//实际登录聊天室的房间id
+        chatHistoryDisposable = PolyvApiManager.getPolyvApichatApi().getChatHistory(loginRoomId, start, end, 1)
+                .map(new Function<ResponseBody, JSONArray>() {
+                    @Override
+                    public JSONArray apply(ResponseBody responseBody) throws Exception {
+                        return new JSONArray(responseBody.string());
+                    }
+                })
+                .compose(new PolyvRxBaseTransformer<JSONArray, JSONArray>())
+                .map(new Function<JSONArray, JSONArray>() {
+                    @Override
+                    public JSONArray apply(JSONArray jsonArray) throws Exception {
+                        if (jsonArray.length() <= getChatHistoryCount) {
+                            isNoMoreChatHistory = true;
+                        }
+                        return jsonArray;
+                    }
+                })
+                .observeOn(Schedulers.io())
+                .map(new Function<JSONArray, List<PLVBaseViewData>>() {
+                    @Override
+                    public List<PLVBaseViewData> apply(JSONArray jsonArray) throws Exception {
+                        //把带表情的信息解析保存下来
+                        int textSize = ConvertUtils.dp2px(12);
+                        if (getView() != null) {
+                            textSize = (getView().onSpeakTextSize() <= 0) ? textSize : getView().onSpeakTextSize();
+                        }
+                        return acceptChatHistory(jsonArray, textSize);
+                    }
+                })
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<List<PLVBaseViewData>>() {
+                    @Override
+                    public void accept(final List<PLVBaseViewData> dataList) throws Exception {
+                        getChatHistoryTime++;
+                        if (getView() != null) {
+                            getView().onHistoryDataList(dataList, getChatHistoryTime, isNoMoreChatHistory);
+                        }
+                    }
+                }, new Consumer<Throwable>() {
+                    @Override
+                    public void accept(final Throwable throwable) throws Exception {
+                        PolyvCommonLog.exception(throwable);
+                        if (getView() != null) {
+                            getView().onHistoryRequestFailed(PLVLiveRoomManager.getErrorMessage(throwable), throwable);
+                        }
+                    }
+                });
+    }
+
     @NonNull
     @Override
     public PLVChatroomData getData() {
@@ -219,10 +358,18 @@ public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPrese
 
     @Override
     public void destroy() {
+        getChatHistoryTime = 0;
+        isNoMoreChatHistory = false;
+        isGetChildRoomId = false;
+        hasRequestHistoryEvent = false;
         unregisterView();
         if (messageDisposable != null) {
             messageDisposable.dispose();
         }
+        if (chatHistoryDisposable != null) {
+            chatHistoryDisposable.dispose();
+        }
+        liveRoomData.getClassDetailVO().removeObserver(classDetailVOObserver);
         PolyvChatManager.getInstance().destroy();//销毁，会移除实例及所有的监听器
         PLVReflectionUtils.cleanFields(this);
     }
@@ -235,6 +382,90 @@ public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPrese
 
     private PLVLiveChannelConfig getConfig() {
         return liveRoomData.getConfig();
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="历史信息处理">
+    private List<PLVBaseViewData> acceptChatHistory(JSONArray jsonArray, int speakTextSizes) {
+        if (speakTextSizes == 0) {
+            speakTextSizes = ConvertUtils.dp2px(12);
+        }
+        List<PLVBaseViewData> tempChatItems = new ArrayList<>();
+        for (int i = 0; i < (jsonArray.length() <= getChatHistoryCount ? jsonArray.length() : jsonArray.length() - 1); i++) {
+            JSONObject jsonObject = jsonArray.optJSONObject(i);
+            if (jsonObject != null) {
+                String msgType = jsonObject.optString("msgType");
+                if (!TextUtils.isEmpty(msgType)) {
+                    if (PolyvHistoryConstant.MSGTYPE_CUSTOMMESSAGE.equals(msgType)) {
+                        //custom message
+                    }
+                    continue;
+                }
+                String messageSource = jsonObject.optString("msgSource");
+                if (!TextUtils.isEmpty(messageSource)) {
+                    //收/发红包/图片信息，这里仅取图片信息
+                    if (PolyvHistoryConstant.MSGSOURCE_CHATIMG.equals(messageSource)) {
+                        int itemType = PLVChatMessageItemType.ITEMTYPE_IMG;
+                        PolyvChatImgHistory chatImgHistory = PolyvGsonUtil.fromJson(PolyvChatImgHistory.class, jsonObject.toString());
+                        //如果是当前用户，则使用当前用户的昵称
+                        if (PolyvChatManager.getInstance().userId.equals(chatImgHistory.getUser().getUserId())) {
+                            chatImgHistory.getUser().setNick(PolyvChatManager.getInstance().nickName);
+                            itemType = PLVChatMessageItemType.ITEMTYPE_IMG;
+                        }
+                        PLVBaseViewData itemData = new PLVBaseViewData<>(chatImgHistory, itemType);
+                        tempChatItems.add(0, itemData);
+                    }
+                    continue;
+                }
+                JSONObject jsonObject_user = jsonObject.optJSONObject("user");
+                if (jsonObject_user != null) {
+                    String uid = jsonObject_user.optString("uid");
+                    if (PolyvHistoryConstant.UID_REWARD.equals(uid) || PolyvHistoryConstant.UID_CUSTOMMSG.equals(uid)) {
+                        //打赏/自定义信息，这里过滤掉
+                        continue;
+                    }
+                    JSONObject jsonObject_content = jsonObject.optJSONObject("content");
+                    if (jsonObject_content != null) {
+                        //content不为字符串的信息，这里过滤掉
+                        continue;
+                    }
+                    int itemType = PLVChatMessageItemType.ITEMTYPE_SPEAK;
+                    PolyvSpeakHistory speakHistory = PolyvGsonUtil.fromJson(PolyvSpeakHistory.class, jsonObject.toString());
+                    //如果是当前用户，则使用当前用户的昵称
+                    if (PolyvChatManager.getInstance().userId.equals(speakHistory.getUser().getUserId())) {
+                        speakHistory.getUser().setNick(PolyvChatManager.getInstance().nickName);
+                        itemType = PLVChatMessageItemType.ITEMTYPE_SPEAK;
+                    }
+                    //把带表情的信息解析保存下来
+                    speakHistory.setObjects(PLVTextFaceLoader.messageToSpan(speakHistory.getContent(), speakTextSizes, Utils.getApp()));
+                    PLVBaseViewData itemData = new PLVBaseViewData<>(speakHistory, itemType);
+                    tempChatItems.add(0, itemData);
+                }
+            }
+        }
+        return tempChatItems;
+    }
+    // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="数据监听 - 观察直播间的数据">
+    private void observeLiveRoomData() {
+        //观察直播间的直播详情数据
+        liveRoomData.getClassDetailVO().observeForever(classDetailVOObserver = new Observer<PolyvLiveClassDetailVO>() {
+            @Override
+            public void onChanged(@Nullable PolyvLiveClassDetailVO classDetailVO) {
+                liveRoomData.getClassDetailVO().removeObserver(this);
+                if (classDetailVO == null || classDetailVO.getData() == null) {
+                    return;
+                }
+                String hasFormatLikes = classDetailVO.getData().getLikes();
+                likesCount = (long) (hasFormatLikes.endsWith("w")
+                        ? Double.valueOf(hasFormatLikes.substring(0, hasFormatLikes.length() - 1)) * 10000
+                        : Double.valueOf(hasFormatLikes));
+                viewerCount = classDetailVO.getData().getPageView();
+                chatroomData.postLikesCountData(likesCount);
+                chatroomData.postViewerCountData(viewerCount);
+            }
+        });
     }
     // </editor-fold>
 
@@ -254,6 +485,10 @@ public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPrese
                 }
                 break;
             case PolyvConnectStatusListener.STATUS_LOGINSUCCESS:
+                isGetChildRoomId = true;
+                if (hasRequestHistoryEvent) {
+                    requestChatHistory();
+                }
                 if (getView() != null) {
                     getView().handleLoginSuccess(false);
                 }
@@ -370,6 +605,8 @@ public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPrese
                                 if (getView() != null) {
                                     getView().onLikesEvent(likesEvent);
                                 }
+                                likesCount = likesCount + likesEvent.getCount();
+                                chatroomData.postLikesCountData(likesCount);
                             }
                         }
                         break;
@@ -380,6 +617,13 @@ public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPrese
                             if (getView() != null) {
                                 getView().onLoginEvent(loginEvent);
                             }
+                            //如果不是自己的socket登录事件，则观看热度+1
+                            if (!PolyvChatManager.getInstance().userId.equals(loginEvent.getUser().getUserId())) {
+                                viewerCount++;
+                                chatroomData.postViewerCountData(viewerCount);
+                            }
+                            onlineCount = loginEvent.getOnlineUserNumber();
+                            chatroomData.postOnlineCountData(onlineCount);
                         }
                         break;
                     //用户登出信息
@@ -389,6 +633,8 @@ public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPrese
                             if (getView() != null) {
                                 getView().onLogoutEvent(logoutEvent);
                             }
+                            onlineCount = logoutEvent.getOnlineUserNumber();
+                            chatroomData.postOnlineCountData(onlineCount);
                         }
                         break;
                     //发布公告事件
@@ -431,6 +677,13 @@ public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPrese
                                 if (productMoveEvent != null) {
                                     if (getView() != null) {
                                         getView().onProductMoveEvent(productMoveEvent);
+                                    }
+                                }
+                            } else if (productEvent.isProductMenuSwitchEvent()) {
+                                PolyvProductMenuSwitchEvent productMenuSwitchEvent = PolyvEventHelper.gson.fromJson(message, PolyvProductMenuSwitchEvent.class);
+                                if (productMenuSwitchEvent != null) {
+                                    if (getView() != null) {
+                                        getView().onProductMenuSwitchEvent(productMenuSwitchEvent);
                                     }
                                 }
                             }
@@ -477,6 +730,23 @@ public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPrese
                             }
                         }
                         break;
+                    //管理员删除某条聊天信息事件
+                    case PolyvChatManager.EVENT_REMOVE_CONTENT:
+                        final PolyvRemoveContentEvent removeContentEvent = PolyvEventHelper.getEventObject(PolyvRemoveContentEvent.class, message, event);
+                        if (removeContentEvent != null) {
+                            if (getView() != null) {
+                                getView().onRemoveMessageEvent(removeContentEvent.getId(), false);
+                            }
+                        }
+                        break;
+                    //管理员清空所有聊天信息事件
+                    case PolyvChatManager.EVENT_REMOVE_HISTORY:
+                        final PolyvRemoveHistoryEvent removeHistoryEvent = PolyvEventHelper.getEventObject(PolyvRemoveHistoryEvent.class, message, event);
+                        if (removeHistoryEvent != null) {
+                            if (getView() != null) {
+                                getView().onRemoveMessageEvent(null, true);
+                            }
+                        }
                 }
                 if (chatMessage != null) {
                     chatMessageDataList.add(new PLVBaseViewData<>(chatMessage, itemType));

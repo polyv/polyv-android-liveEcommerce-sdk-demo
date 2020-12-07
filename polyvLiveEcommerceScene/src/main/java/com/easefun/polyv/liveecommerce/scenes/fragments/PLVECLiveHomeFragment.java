@@ -1,19 +1,29 @@
 package com.easefun.polyv.liveecommerce.scenes.fragments;
 
 import android.annotation.SuppressLint;
+import android.arch.lifecycle.Observer;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.widget.SwipeRefreshLayout;
+import android.support.v7.app.AlertDialog;
+import android.text.Spannable;
+import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
+import android.text.style.ImageSpan;
+import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.easefun.polyv.businesssdk.model.video.PolyvDefinitionVO;
 import com.easefun.polyv.businesssdk.model.video.PolyvMediaPlayMode;
 import com.easefun.polyv.cloudclass.chat.PolyvChatManager;
 import com.easefun.polyv.cloudclass.chat.PolyvLocalMessage;
@@ -27,6 +37,7 @@ import com.easefun.polyv.cloudclass.chat.event.PolyvLogoutEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvReloginEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvSpeakEvent;
 import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductControlEvent;
+import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductMenuSwitchEvent;
 import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductMoveEvent;
 import com.easefun.polyv.cloudclass.chat.event.commodity.PolyvProductRemoveEvent;
 import com.easefun.polyv.cloudclass.chat.send.custom.PolyvCustomEvent;
@@ -35,6 +46,7 @@ import com.easefun.polyv.cloudclass.model.bulletin.PolyvBulletinVO;
 import com.easefun.polyv.cloudclass.model.commodity.saas.PolyvCommodityVO;
 import com.easefun.polyv.cloudclass.model.commodity.saas.PolyvProductContentBean;
 import com.easefun.polyv.livecommon.modules.chatroom.PLVCustomGiftBean;
+import com.easefun.polyv.livecommon.modules.chatroom.PLVCustomGiftEvent;
 import com.easefun.polyv.livecommon.modules.chatroom.contract.IPLVChatroomContract;
 import com.easefun.polyv.livecommon.modules.chatroom.holder.PLVChatMessageItemType;
 import com.easefun.polyv.livecommon.modules.chatroom.view.PLVAbsChatroomView;
@@ -44,6 +56,7 @@ import com.easefun.polyv.livecommon.ui.widget.itemview.PLVBaseViewData;
 import com.easefun.polyv.livecommon.ui.window.PLVBaseFragment;
 import com.easefun.polyv.livecommon.ui.window.PLVInputWindow;
 import com.easefun.polyv.livecommon.utils.PLVToastUtils;
+import com.easefun.polyv.livecommon.utils.span.PLVRelativeImageSpan;
 import com.easefun.polyv.livecommon.utils.span.PLVTextFaceLoader;
 import com.easefun.polyv.liveecommerce.R;
 import com.easefun.polyv.liveecommerce.modules.chatroom.PLVECChatMessageAdapter;
@@ -74,7 +87,6 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
     // <editor-fold defaultstate="collapsed" desc="成员变量">
     //观看信息布局
     private PLVECWatchInfoView watchInfoLy;
-    private int currentWatchCount;
     //公告布局
     private PLVECBulletinView bulletinLy;
     //欢迎语
@@ -84,16 +96,20 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
     private PLVECChatMessageAdapter chatMessageAdapter;
     private TextView sendMsgTv;
     private PLVECChatImgScanPopupView chatImgScanPopupView;
+    //未读信息提醒view
+    private TextView unreadMsgTv;
+    //下拉加载历史记录控件
+    private SwipeRefreshLayout swipeLoadView;
     //聊天室presenter
     private IPLVChatroomContract.IChatroomPresenter chatroomPresenter;
     //点赞区域
     private PLVECLikeIconView likeBt;
     private TextView likeCountTv;
-    private int currentLikesCount;
     //更多
     private ImageView moreIv;
     private PLVECMorePopupView morePopupView;
     private int currentRoutePos;
+    private int currentDefinitionPos;
     private Rect videoViewRect;
     //商品
     private ImageView commodityIv;
@@ -126,9 +142,13 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
         //直播带货需要允许使用子房间功能
         chatroomPresenter.setAllowChildRoom(true);
         chatroomPresenter.login();
+        //请求一次历史记录
+        chatroomPresenter.setGetChatHistoryCount(10);
+        chatroomPresenter.requestChatHistory();
 
         calculateCloudClassVideoViewRect();
         startLikeAnimationTask(5000);
+        observeChatroomData();
     }
     // </editor-fold>
 
@@ -142,6 +162,19 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
         chatMsgRv.addItemDecoration(new PLVMessageRecyclerView.SpacesItemDecoration(ConvertUtils.dp2px(4)));
         chatMsgRv.setAdapter(chatMessageAdapter = new PLVECChatMessageAdapter());
         chatMessageAdapter.setOnViewActionListener(onChatMsgViewActionListener);
+        //未读信息view
+        unreadMsgTv = findViewById(R.id.unread_msg_tv);
+        chatMsgRv.setUnreadView(unreadMsgTv);
+        //下拉控件
+        swipeLoadView = findViewById(R.id.swipe_load_view);
+        swipeLoadView.setColorSchemeResources(android.R.color.holo_blue_light, android.R.color.holo_red_light,
+                android.R.color.holo_orange_light, android.R.color.holo_green_light);
+        swipeLoadView.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                chatroomPresenter.requestChatHistory();
+            }
+        });
         sendMsgTv = findViewById(R.id.send_msg_tv);
         sendMsgTv.setOnClickListener(this);
         likeBt = findViewById(R.id.like_bt);
@@ -163,19 +196,13 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
     }
     // </editor-fold>
 
-    // <editor-fold defaultstate="collapsed" desc="观看信息、商品列表开关 - 数据处理">
+    // <editor-fold defaultstate="collapsed" desc="商品列表开关 - 数据处理">
     public void setClassDetailVO(PolyvLiveClassDetailVO liveClassDetailVO) {
         if (liveClassDetailVO == null) {
             return;
         }
         PolyvLiveClassDetailVO.DataBean dataBean = liveClassDetailVO.getData();
-        String hasFormatLikes = dataBean.getLikes();
-        likeCountTv.setText(hasFormatLikes);
-        currentLikesCount = hasFormatLikes.endsWith("w")
-                ? Integer.valueOf(hasFormatLikes.substring(0, hasFormatLikes.length() - 1)) * 10000
-                : Integer.valueOf(hasFormatLikes);
-        likeCountTv.setVisibility(View.VISIBLE);
-        watchInfoLy.updateWatchInfo(dataBean.getCoverImage(), dataBean.getPublisher(), currentWatchCount = (dataBean.getPageView() + 1));
+        watchInfoLy.updateWatchInfo(dataBean.getCoverImage(), dataBean.getPublisher());
         watchInfoLy.setVisibility(View.VISIBLE);
         //根据商品列表开关来显示/隐藏商品库按钮
         if (liveClassDetailVO.isOpenCommodity()) {
@@ -195,24 +222,78 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
     }
     // </editor-fold>
 
-    // <editor-fold defaultstate="collapsed" desc="欢迎语、观看热度 - 显示，更新">
+    // <editor-fold defaultstate="collapsed" desc="欢迎语 - 显示">
     private void acceptLoginMessage(PolyvLoginEvent loginEvent) {
-        //收到用户login后，增加观看热度
-        if (!PolyvChatManager.getInstance().userId.equals(loginEvent.getUser().getUserId())) {//过滤自己，已在初始化时+1
-            watchInfoLy.updateWatchCount(++currentWatchCount);
-        }
         //显示欢迎语
         greetLy.acceptGreetingMessage(loginEvent);
     }
     // </editor-fold>
 
+    // <editor-fold defaultstate="collapsed" desc="聊天室 - 观察聊天室数据">
+    private void observeChatroomData() {
+        chatroomPresenter.getData().getLikesCountData().observe(this, new Observer<Long>() {
+            @Override
+            public void onChanged(@Nullable Long l) {
+                //点赞数
+                String likesString = l > 10000 ?
+                        String.format("%.1f", (double) l / 10000) + "w" : l + "";
+                likeCountTv.setText(likesString);
+            }
+        });
+        chatroomPresenter.getData().getViewerCountData().observe(this, new Observer<Long>() {
+            @Override
+            public void onChanged(@Nullable Long l) {
+                //观看热度
+            }
+        });
+        chatroomPresenter.getData().getOnlineCountData().observe(this, new Observer<Integer>() {
+            @Override
+            public void onChanged(@Nullable Integer integer) {
+                //在线人数
+                watchInfoLy.updateWatchCount(integer);
+            }
+        });
+    }
+    // </editor-fold>
+
     // <editor-fold defaultstate="collapsed" desc="聊天室 - 添加信息至列表">
-    private void addChatMessageToList(final List<PLVBaseViewData> chatMessageDataList) {
+    private void addChatMessageToList(final List<PLVBaseViewData> chatMessageDataList, final boolean isScrollEnd) {
         handler.post(new Runnable() {
             @Override
             public void run() {
                 chatMessageAdapter.addDataListChanged(chatMessageDataList);
-                chatMsgRv.scrollToPosition(chatMessageAdapter.getItemCount() - 1);
+                if (isScrollEnd) {
+                    chatMsgRv.scrollToPosition(chatMessageAdapter.getItemCount() - 1);
+                } else {
+                    chatMsgRv.scrollToBottomOrShowMore(chatMessageDataList.size());
+                }
+            }
+        });
+    }
+
+    private void addChatHistoryToList(final List<PLVBaseViewData> chatMessageDataList, final boolean isScrollEnd) {
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                chatMessageAdapter.addDataListChangedAtFirst(chatMessageDataList);
+                if (isScrollEnd) {
+                    chatMsgRv.scrollToPosition(chatMessageAdapter.getItemCount() - 1);
+                } else {
+                    chatMsgRv.scrollToPosition(0);
+                }
+            }
+        });
+    }
+
+    private void removeChatMessageToList(final String id, final boolean isRemoveAll) {
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (isRemoveAll) {
+                    chatMessageAdapter.removeAllDataChanged();
+                } else {
+                    chatMessageAdapter.removeDataChanged(id);
+                }
             }
         });
     }
@@ -315,33 +396,49 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
         }
 
         @Override
+        public void onProductMenuSwitchEvent(@NonNull PolyvProductMenuSwitchEvent productMenuSwitchEvent) {
+            super.onProductMenuSwitchEvent(productMenuSwitchEvent);
+            if (productMenuSwitchEvent.getContent() != null) {
+                //商品库开关
+                boolean isEnabled = productMenuSwitchEvent.getContent().isEnabled();
+            }
+        }
+
+        @Override
         public void onCloseRoomEvent(@NonNull PolyvCloseRoomEvent closeRoomEvent) {
             super.onCloseRoomEvent(closeRoomEvent);
+        }
+
+        @Override
+        public void onRemoveMessageEvent(@Nullable String id, boolean isRemoveAll) {
+            super.onRemoveMessageEvent(id, isRemoveAll);
+            removeChatMessageToList(id, isRemoveAll);
         }
 
         @Override
         public void onKickEvent(@NonNull PolyvKickEvent kickEvent, boolean isOwn) {
             super.onKickEvent(kickEvent, isOwn);
             if (isOwn) {
-                PLVToastUtils.showShort("您已被管理员踢出聊天室！");
+                showExitDialog("您已被管理员踢出聊天室！");
             }
         }
 
         @Override
         public void onLoginRefuseEvent(@NonNull PolyvLoginRefuseEvent loginRefuseEvent) {
             super.onLoginRefuseEvent(loginRefuseEvent);
-            PLVToastUtils.showShort("您已被管理员踢出聊天室！");
+            showExitDialog("您已被管理员踢出聊天室！");
         }
 
         @Override
         public void onReloginEvent(@NonNull PolyvReloginEvent reloginEvent) {
             super.onReloginEvent(reloginEvent);
-            PLVToastUtils.showShort("该账号已在其他设备登录！");
+            showExitDialog("该账号已在其他设备登录！");
         }
 
         @Override
         public void onCustomGiftEvent(@NonNull PolyvCustomEvent.UserBean userBean, @NonNull PLVCustomGiftBean customGiftBean) {
             showRewardGiftAnimView(userBean.getNick(), customGiftBean);
+            addCustomGiftToChatList(userBean.getNick(), customGiftBean.getGiftName(), customGiftBean.getGiftType(), false);
         }
 
         @Override
@@ -350,14 +447,42 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
             if (localMessage != null) {
                 List<PLVBaseViewData> dataList = new ArrayList<>();
                 dataList.add(new PLVBaseViewData<>(localMessage, PLVChatMessageItemType.ITEMTYPE_SPEAK));
-                addChatMessageToList(dataList);
+                addChatMessageToList(dataList, true);
             }
         }
 
         @Override
         public void onChatMessageDataList(List<PLVBaseViewData> chatMessageDataList) {
             super.onChatMessageDataList(chatMessageDataList);
-            addChatMessageToList(chatMessageDataList);
+            addChatMessageToList(chatMessageDataList, false);
+        }
+
+        @Override
+        public void onHistoryDataList(List<PLVBaseViewData> chatMessageDataList, int requestSuccessTime, boolean isNoMoreHistory) {
+            super.onHistoryDataList(chatMessageDataList, requestSuccessTime, isNoMoreHistory);
+            if (swipeLoadView != null) {
+                swipeLoadView.setRefreshing(false);
+                swipeLoadView.setEnabled(true);
+            }
+            if (chatMessageDataList.size() > 0) {
+                addChatHistoryToList(chatMessageDataList, requestSuccessTime == 1);
+            }
+            if (isNoMoreHistory) {
+                ToastUtils.showShort("历史记录已全部加载完成！");
+                if (swipeLoadView != null) {
+                    swipeLoadView.setEnabled(false);
+                }
+            }
+        }
+
+        @Override
+        public void onHistoryRequestFailed(String errorMsg, Throwable t) {
+            super.onHistoryRequestFailed(errorMsg, t);
+            if (swipeLoadView != null) {
+                swipeLoadView.setRefreshing(false);
+                swipeLoadView.setEnabled(true);
+            }
+            ToastUtils.showShort("历史记录加载失败" + ": " + errorMsg);
         }
     };
 
@@ -365,6 +490,27 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
         return chatroomView;
     }
     // </editor-fold>
+
+    // <editor-fold defaultstate="collapsed" desc="聊天室 - 显示退出对话框">
+    private void showExitDialog(final String message) {
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                new AlertDialog.Builder(getActivity())
+                        .setTitle("温馨提示")
+                        .setMessage(message)
+                        .setPositiveButton("确定", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                getActivity().finish();
+                            }
+                        })
+                        .setCancelable(false)
+                        .show();
+            }
+        });
+    }
+    // </editor-fold> 
 
     // <editor-fold defaultstate="collapsed" desc="聊天室 - 图片信息点击事件处理">
     PLVECChatMessageAdapter.OnViewActionListener onChatMsgViewActionListener = new PLVECChatMessageAdapter.OnViewActionListener() {
@@ -414,10 +560,6 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
             @Override
             public void run() {
                 startAddLoveIconTask(200, Math.min(5, likesCount));
-                currentLikesCount = currentLikesCount + likesCount;
-                String likesString = currentLikesCount > 10000 ?
-                        String.format("%.1f", (double) currentLikesCount / 10000) + "w" : currentLikesCount + "";
-                likeCountTv.setText(likesString);
             }
         });
     }
@@ -470,6 +612,21 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
                     currentRoutePos = routePos;
                     if (onViewActionListener != null) {
                         onViewActionListener.onChangeRouteClick(view, routePos);
+                    }
+                }
+            }
+
+            @Override
+            public Pair<List<PolyvDefinitionVO>, Integer> onShowDefinitionClick(View view) {
+                return onViewActionListener == null ? new Pair<List<PolyvDefinitionVO>, Integer>(null, 0) : onViewActionListener.onShowDefinitionClick(view);
+            }
+
+            @Override
+            public void onDefinitionChangeClick(View view, int definitionPos) {
+                if (currentDefinitionPos != definitionPos) {
+                    currentDefinitionPos = definitionPos;
+                    if (onViewActionListener != null) {
+                        onViewActionListener.onDefinitionChangeClick(view, definitionPos);
                     }
                 }
             }
@@ -594,7 +751,8 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
             public void onRewardClick(View view, PLVCustomGiftBean giftBean) {
                 rewardPopupView.hide();
                 String nickName = PolyvChatManager.getInstance().nickName;
-                showRewardGiftAnimView(nickName, giftBean);
+                showRewardGiftAnimView(nickName + "(我)", giftBean);
+                addCustomGiftToChatList(nickName + "(我)", giftBean.getGiftName(), giftBean.getGiftType(), true);
                 //通过自定义信息事件发送礼物信息至聊天室
                 chatroomPresenter.sendCustomGiftMessage(giftBean, nickName + " 赠送了" + giftBean.getGiftName());
             }
@@ -607,21 +765,43 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
                 new PLVECRewardGiftAnimView.RewardGiftInfo(userName, giftBean.getGiftName(), giftDrawableId)
         );
     }
+
+    private void addCustomGiftToChatList(String userName, String giftName, String giftType, boolean isScrollEnd) {
+        PLVCustomGiftEvent customGiftEvent = generateCustomGiftEvent(userName, giftName, giftType);
+        List<PLVBaseViewData> dataList = new ArrayList<>();
+        dataList.add(new PLVBaseViewData<>(customGiftEvent, PLVChatMessageItemType.ITEMTYPE_CUSTOM_GIFT));
+        addChatMessageToList(dataList, isScrollEnd);
+    }
+
+    private PLVCustomGiftEvent generateCustomGiftEvent(String userName, String giftName, String giftType) {
+        SpannableStringBuilder span = new SpannableStringBuilder(userName + " 赠送了 " + giftName + " p");
+        int giftDrawableId = getResources().getIdentifier("plvec_gift_" + giftType, "drawable", getContext().getPackageName());
+        Drawable drawable = getResources().getDrawable(giftDrawableId);
+        ImageSpan imageSpan = new PLVRelativeImageSpan(drawable, PLVRelativeImageSpan.ALIGN_CENTER);
+        int textSize = ConvertUtils.dp2px(12);
+        drawable.setBounds(0, 0, (int) (textSize * 1.5), (int) (textSize * 1.5));
+        span.setSpan(imageSpan, span.length() - 1, span.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return new PLVCustomGiftEvent(span);
+    }
     // </editor-fold>
 
     // <editor-fold defaultstate="collapsed" desc="播放器 - 状态变化处理，切换线路变化处理">
     public void setPlayerState(PLVLivePlayerData.PlayerState state) {
         if (state == PLVLivePlayerData.PlayerState.Prepared) {
             morePopupView.updatePlayStateView(View.VISIBLE);
+
+            if (onViewActionListener != null) {
+                currentRoutePos = onViewActionListener.onGetRoutePosAction();
+                currentDefinitionPos = onViewActionListener.onGetDefinitionAction();
+                int isPlayModeViewVisibility = onViewActionListener.onGetMediaPlayModeAction() == PolyvMediaPlayMode.MODE_VIDEO ? View.VISIBLE : View.GONE;
+                morePopupView.updatePlayModeView(isPlayModeViewVisibility);
+            }
+            morePopupView.updateRouteView(new int[]{onViewActionListener == null ? 1 : onViewActionListener.onGetRouteCountAction(), currentRoutePos});
+            morePopupView.updateDefinitionView(onViewActionListener == null ? new Pair<List<PolyvDefinitionVO>, Integer>(null, 0) : onViewActionListener.onShowDefinitionClick(view));
         } else if (state == PLVLivePlayerData.PlayerState.NoLive || state == PLVLivePlayerData.PlayerState.LiveEnd) {
             morePopupView.hide();
             morePopupView.updatePlayStateView(View.GONE);
         }
-    }
-
-    public void setPlayRoutePos(Integer integer) {
-        currentRoutePos = integer == null ? 0 : integer;
-        morePopupView.updateRouteView(new int[]{onViewActionListener == null ? 1 : onViewActionListener.onGetRouteCountAction(), currentRoutePos});
     }
     // </editor-fold>
 
@@ -686,11 +866,23 @@ public class PLVECLiveHomeFragment extends PLVBaseFragment implements View.OnCli
         //切换线路
         void onChangeRouteClick(View view, int routePos);
 
+        //[清晰度信息，清晰度索引]
+        Pair<List<PolyvDefinitionVO>, Integer> onShowDefinitionClick(View view);
+
+        //切换清晰度
+        void onDefinitionChangeClick(View view, int definitionPos);
+
         //获取播放模式
         int onGetMediaPlayModeAction();
 
         //获取线路数
         int onGetRouteCountAction();
+
+        //获取线路索引
+        int onGetRoutePosAction();
+
+        //获取清晰度索引
+        int onGetDefinitionAction();
 
         //设置播放器的位置
         void onSetVideoViewRectAction(Rect videoViewRect);

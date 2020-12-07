@@ -43,23 +43,46 @@
         android:id="@+id/greet_ly"
         android:layout_width="258dp"
         android:layout_height="22dp"
-        android:layout_above="@+id/chat_msg_rv"
+        android:layout_above="@+id/swipe_load_view"
         android:layout_marginBottom="16dp"
         android:visibility="invisible"
         tools:visibility="visible" />
 
-    <!--聊天信息列表-->
-    <com.easefun.polyv.livecommon.ui.widget.PLVMessageRecyclerView
-        android:id="@+id/chat_msg_rv"
+    <android.support.v4.widget.SwipeRefreshLayout
+        android:id="@+id/swipe_load_view"
         android:layout_width="244dp"
         android:layout_height="152dp"
         android:layout_above="@+id/send_msg_tv"
-        android:layout_marginBottom="16dp"
         android:layout_marginLeft="@dimen/plvec_margin_common"
-        android:fadingEdgeLength="32dp"
-        android:overScrollMode="never"
-        android:requiresFadingEdge="vertical"
-        app:fastScrollEnabled="false" />
+        android:layout_marginBottom="16dp">
+
+        <!--聊天信息列表-->
+        <com.easefun.polyv.livecommon.ui.widget.PLVMessageRecyclerView
+            android:id="@+id/chat_msg_rv"
+            android:layout_width="244dp"
+            android:layout_height="152dp"
+            android:fadingEdgeLength="32dp"
+            android:overScrollMode="never"
+            android:requiresFadingEdge="vertical"
+            app:fastScrollEnabled="false" />
+    </android.support.v4.widget.SwipeRefreshLayout>
+
+    <TextView
+        android:id="@+id/unread_msg_tv"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/swipe_load_view"
+        android:layout_alignBottom="@+id/swipe_load_view"
+        android:layout_gravity="bottom"
+        android:background="@drawable/plvec_chatroom_view_more_bg"
+        android:paddingLeft="8dp"
+        android:paddingTop="4dp"
+        android:paddingRight="8dp"
+        android:paddingBottom="4dp"
+        android:text="查看新信息"
+        android:textColor="#FFA611"
+        android:textSize="14sp"
+        android:visibility="gone" />
 
     <!--输入框呼出按钮-->
     <TextView
@@ -108,16 +131,29 @@
         android:layout_height="32dp"
         android:layout_alignParentBottom="true"
         android:layout_marginRight="12dp"
-        android:layout_toLeftOf="@+id/more_ly"
+        android:layout_toLeftOf="@+id/more_iv"
         android:src="@drawable/plvec_reward" />
 
-    <!--点赞，更多布局-->
+    <!--更多按钮-->
+    <ImageView
+        android:id="@+id/more_iv"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginRight="@dimen/plvec_margin_common"
+        android:src="@drawable/plvec_more"
+        android:visibility="visible"
+        tools:visibility="visible" />
+
+    <!--点赞布局-->
     <LinearLayout
         android:id="@+id/more_ly"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
         android:layout_alignParentRight="true"
+        android:layout_above="@+id/more_iv"
+        android:layout_marginBottom="14dp"
         android:gravity="right"
         android:orientation="vertical">
 
@@ -137,21 +173,8 @@
             android:layout_marginRight="@dimen/plvec_margin_common"
             android:gravity="center"
             android:minWidth="32dp"
-            android:text="2.5w"
+            android:text=""
             android:textColor="#ffffff"
-            android:textSize="12sp"
-            android:visibility="invisible"
-            tools:visibility="visible" />
-
-        <!--更多按钮-->
-        <ImageView
-            android:id="@+id/more_iv"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:layout_marginRight="@dimen/plvec_margin_common"
-            android:layout_marginTop="14dp"
-            android:src="@drawable/plvec_more"
-            android:visibility="visible"
-            tools:visibility="visible" />
+            android:textSize="12sp" />
     </LinearLayout>
 </RelativeLayout>

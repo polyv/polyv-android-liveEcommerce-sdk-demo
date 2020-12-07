@@ -7,6 +7,9 @@ import com.easefun.polyv.cloudclass.chat.PolyvChatManager;
 import com.easefun.polyv.cloudclass.chat.PolyvLocalMessage;
 import com.easefun.polyv.cloudclass.chat.event.PolyvChatImgEvent;
 import com.easefun.polyv.cloudclass.chat.event.PolyvSpeakEvent;
+import com.easefun.polyv.cloudclass.chat.history.PolyvChatImgHistory;
+import com.easefun.polyv.cloudclass.chat.history.PolyvSpeakHistory;
+import com.easefun.polyv.livecommon.modules.chatroom.PLVCustomGiftEvent;
 import com.easefun.polyv.livecommon.ui.widget.itemview.PLVBaseViewData;
 import com.easefun.polyv.livecommon.ui.widget.itemview.adapter.PLVBaseAdapter;
 import com.easefun.polyv.livecommon.ui.widget.itemview.holder.PLVBaseViewHolder;
@@ -78,6 +81,35 @@ public class PLVChatMessageBaseViewHolder<Data extends PLVBaseViewData, Adapter 
                     }
                 }
             }
+        } else if (chatMessage instanceof PolyvSpeakHistory) {//历史发言事件
+            PolyvSpeakHistory speakHistory = (PolyvSpeakHistory) chatMessage;
+            PolyvSpeakHistory.UserBean userBean = speakHistory.getUser();
+            if (userBean != null) {
+                userType = userBean.getUserType();
+                nickName = userBean.getNick();
+                userId = userBean.getUserId();
+                actor = userBean.getActor();
+            }
+            speakMsg = (CharSequence) speakHistory.getObjects()[0];
+        } else if (chatMessage instanceof PolyvChatImgHistory) {//历史图片事件
+            PolyvChatImgHistory chatImgHistory = (PolyvChatImgHistory) chatMessage;
+            PolyvChatImgHistory.UserBean userBean = chatImgHistory.getUser();
+            if (userBean != null) {
+                userType = userBean.getUserType();
+                nickName = userBean.getNick();
+                userId = userBean.getUserId();
+                actor = userBean.getActor();
+            }
+            PolyvChatImgHistory.ContentBean contentBean = chatImgHistory.getContent();
+            if (contentBean != null) {
+                chatImgUrl = contentBean.getUploadImgUrl();
+                if (contentBean.getSize() != null) {
+                    chatImgWidth = (int) contentBean.getSize().getWidth();
+                    chatImgHeight = (int) contentBean.getSize().getHeight();
+                }
+            }
+        } else if (chatMessage instanceof PLVCustomGiftEvent) {
+            speakMsg = ((PLVCustomGiftEvent) chatMessage).span;
         }
     }
 

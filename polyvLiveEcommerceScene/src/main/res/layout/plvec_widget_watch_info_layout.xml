@@ -32,7 +32,7 @@
         android:drawableLeft="@drawable/plvec_watch"
         android:drawablePadding="3dp"
         android:singleLine="true"
-        android:text="12345"
+        android:text=""
         android:textColor="#ffffff"
         android:textSize="10sp" />
 </RelativeLayout>
