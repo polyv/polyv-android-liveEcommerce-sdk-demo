@@ -292,6 +292,9 @@ public class PLVChatroomPresenter implements IPLVChatroomContract.IChatroomPrese
         int start = getChatHistoryTime * getChatHistoryCount;
         int end = (getChatHistoryTime + 1) * getChatHistoryCount;
         String loginRoomId = PolyvChatManager.getInstance().getLoginRoomId();//实际登录聊天室的房间id
+        if (TextUtils.isEmpty(loginRoomId)) {
+            loginRoomId = getConfig().getChannelId();//socket未登陆时，使用频道号
+        }
         chatHistoryDisposable = PolyvApiManager.getPolyvApichatApi().getChatHistory(loginRoomId, start, end, 1)
                 .map(new Function<ResponseBody, JSONArray>() {
                     @Override
